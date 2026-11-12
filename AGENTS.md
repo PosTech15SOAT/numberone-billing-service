@@ -9,6 +9,24 @@
 - Manter o domínio independente de Spring e JPA.
 - Evitar abstrações sem necessidade.
 
+## Logging
+
+- Preferir logging nos limites externos (API e Infrastructure). Domain e Application permanecem sem logging enquanto não existir necessidade concreta para isso.
+- Evitar logs duplicados e abstrações artificiais.
+- Emitir JSON Elastic Common Schema (ECS) em stdout usando o suporte nativo do Spring Boot; ECS aqui não significa Amazon ECS. A aplicação será executada no Amazon EKS.
+- Utilizar SLF4J 2 Fluent API com `addKeyValue` para atributos do evento: `event.code` em UPPER_SNAKE_CASE, mensagens objetivas em português e IDs em `budget.id`, `budget.version`, `service_order.id`, `notification.id` ou `event.id`, conforme a operação. O formatter ECS organiza esses nomes em objetos JSON aninhados.
+- Utilizar MDC somente para contexto compartilhado dentro de uma operação, com limpeza/restauração ao final. Não implementar correlação sem necessidade nem preencher `trace.id` ou `span.id` manualmente; esses campos pertencem à futura instrumentação de tracing.
+- Registrar INFO para marcos confirmados, DEBUG para diagnóstico pontual, WARN para falhas recuperáveis e ERROR para falhas definitivas ou que exigem intervenção. Não registrar cada consulta, poll ou passagem de camada.
+- Registrar transições comerciais após o commit; nos workers, registrar sucesso somente após a confirmação local. Escolher um único ponto de logging por marco, sem repetir em controller, gateway e repository.
+- Não registrar tokens, e-mails, chaves, credenciais, conteúdo protegido ou payloads completos. Mensagens de exceções externas também podem conter segredos: preservar tipos e frames das causas sem serializar essas mensagens. Mensagens técnicas controladas da aplicação podem ser registradas.
+
+## Gateways externos
+
+- Preferir interfaces por serviço externo ou responsabilidade coesa de integração; não exigir uma interface por método.
+- Adicionar somente operações necessárias aos consumidores atuais, sem antecipar funcionalidades.
+- Aplicar Interface Segregation Principle conforme as necessidades reais dos consumidores, sem limite fixo de métodos.
+- Quando uma interface acumular muitas operações ou responsabilidades distintas, propor uma revisão e justificar sua divisão pela coesão e pelo acoplamento antes de implementar.
+
 ## Contratos
 
 - O HTML consolidado da Fase 4 é a referência arquitetural.
@@ -21,7 +39,7 @@
 
 - Identificar implementações pendentes relacionadas à Saga.
 - Utilizar comentários no formato:
-  // #TODO: SAGA - descrição
+  // TODO: SAGA - descrição
 
 ## Testes
 

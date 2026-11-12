@@ -6,9 +6,11 @@
 
 ## Contexto
 
-O Billing Service mantém orçamentos e suas revisões comerciais, aprovações e rejeições, cobranças e tentativas de pagamento. Esses registros se relacionam: uma cobrança precisa refletir a composição comercial vigente, e suas tentativas precisam permanecer associadas para permitir acompanhar o resultado financeiro. O serviço também integra-se ao Mercado Pago e publicará eventos conforme os contratos da Fase 4.
+O Billing Service mantém orçamentos e suas revisões comerciais, aprovações e rejeições, cobranças e tentativas de pagamento. Esses registros se relacionam: uma cobrança precisa refletir a composição comercial vigente, e suas tentativas precisam permanecer associadas para permitir acompanhar o resultado financeiro. O serviço também integra-se ao Mercado Pago e publicará eventos conforme os contratos de integração.
 
-A arquitetura da Fase 4 prevê uma instância Amazon RDS PostgreSQL compartilhada pela plataforma, com databases lógicos isolados por serviço. O Billing será dono de seu database lógico e acessará somente os próprios dados.
+A decisão de infraestrutura prevê uma instância Amazon RDS PostgreSQL compartilhada pela plataforma, com databases lógicos isolados por serviço. O Billing será dono de seu database lógico e acessará somente os próprios dados.
+
+O destino RDS é uma decisão de arquitetura; este repositório não comprova provisionamento ou deployment. O ambiente local executa PostgreSQL 17 pelo Compose.
 
 ## Decisão
 
@@ -26,7 +28,7 @@ As transações e restrições de integridade ficam limitadas ao database do Bil
 - Revisões, cobranças e tentativas de pagamento têm relações que precisam ser consultadas e preservadas dentro do limite transacional do Billing.
 - Restrições relacionais ajudam a impedir referências inválidas entre esses registros; transações locais permitem aplicar mudanças relacionadas em conjunto.
 - SQL permite consultar esses dados relacionados sem definir previamente uma estrutura de leitura por chave para cada consulta.
-- Spring Data JPA e Flyway atendem ao padrão de persistência previsto para os serviços, e o Billing pode reutilizar a instância RDS PostgreSQL planejada na Fase 4.
+- Spring Data JPA e Flyway atendem à persistência adotada, aproveitando a decisão de infraestrutura PostgreSQL da plataforma.
 - Um único banco transacional reduz a complexidade de implementação e operação para o MVP.
 
 ## Consequências
@@ -46,6 +48,5 @@ As transações e restrições de integridade ficam limitadas ao database do Bil
 
 ## Referências
 
-- HTML consolidado da arquitetura da Fase 4, seções de persistência por microsserviço e contexto Billing.
 - [Restrições do PostgreSQL](https://www.postgresql.org/docs/current/ddl-constraints.html).
 - [Transações e consistência no DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html).

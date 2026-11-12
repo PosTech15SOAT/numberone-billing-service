@@ -1,0 +1,77 @@
+name: Integração contínua
+
+on:
+  workflow_call:
+    inputs:
+      upload_jar:
+        description: Disponibilizar o JAR validado para o deploy manual da mesma execução.
+        type: boolean
+        default: false
+  push:
+    branches:
+      - feature/**
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Validação obrigatória
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Obter código do repositório
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configurar Java 25 e cache Maven
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Habilitar execução do Maven Wrapper
+        run: chmod +x mvnw
+
+      - name: Verificar disponibilidade do Docker para Testcontainers
+        run: docker info
+
+      - name: Executar testes e verificar cobertura consolidada mínima de 80%
+        run: ./mvnw --batch-mode clean verify
+
+      - name: Construir imagem Docker sem publicação
+        if: ${{ !inputs.upload_jar }}
+        env:
+          IMAGE_TAG: numberone-billing-service:${{ github.sha }}
+        run: docker build --tag "$IMAGE_TAG" .
+
+      - name: Disponibilizar JAR validado para deploy
+        if: inputs.upload_jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: billing-application-${{ github.sha }}
+          path: target/numberone-billing-service-*.jar
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Publicar relatórios de testes e cobertura
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorios-testes-cobertura
+          path: |
+            target/surefire-reports
+            target/failsafe-reports
+            target/site
+          if-no-files-found: warn
