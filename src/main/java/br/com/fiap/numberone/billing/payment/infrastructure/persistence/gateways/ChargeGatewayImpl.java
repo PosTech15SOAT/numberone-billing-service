@@ -9,6 +9,7 @@ import br.com.fiap.numberone.billing.payment.application.results.CheckoutResult;
 import br.com.fiap.numberone.billing.payment.application.results.OrderObservation;
 import br.com.fiap.numberone.billing.payment.application.services.OrderPaymentEvidence;
 import br.com.fiap.numberone.billing.budget.infrastructure.outbox.IntegrationEventOutboxRepository;
+import br.com.fiap.numberone.billing.budget.infrastructure.persistence.repositories.BudgetRevisionCounterRepository;
 import br.com.fiap.numberone.billing.infrastructure.outbox.IntegrationEventOutboxEntry;
 import br.com.fiap.numberone.billing.payment.infrastructure.outbox.PaymentIntegrationEventFactory;
 import br.com.fiap.numberone.billing.payment.domain.enums.ChargeStatus;
@@ -58,11 +59,12 @@ public class ChargeGatewayImpl implements ChargeGateway {
     private final TransactionTemplate checkoutPreparation;
     private final IntegrationEventOutboxRepository outbox;
     private final PaymentIntegrationEventFactory paymentEvents;
+    private final BudgetRevisionCounterRepository contexts;
 
     public ChargeGatewayImpl(ChargeRepository chargeRepository, PaymentAttemptRepository attemptRepository,
                              ChargePersistenceMapper mapper, JdbcTemplate jdbcTemplate, EntityManager entityManager,
                              PlatformTransactionManager transactionManager, IntegrationEventOutboxRepository outbox,
-                             PaymentIntegrationEventFactory paymentEvents) {
+                             PaymentIntegrationEventFactory paymentEvents, BudgetRevisionCounterRepository contexts) {
         this.chargeRepository = chargeRepository;
         this.attemptRepository = attemptRepository;
         this.mapper = mapper;
@@ -71,6 +73,7 @@ public class ChargeGatewayImpl implements ChargeGateway {
         this.checkoutPreparation = new TransactionTemplate(transactionManager);
         this.outbox = outbox;
         this.paymentEvents = paymentEvents;
+        this.contexts = contexts;
     }
 
     @Override
@@ -125,6 +128,7 @@ public class ChargeGatewayImpl implements ChargeGateway {
             throw new InvalidPaymentDataException("Contexto da OS e chave de idempotência são obrigatórios");
         }
         serviceOrder.requireCompleted();
+        requireOpenContext(serviceOrder.serviceOrderId());
         requireIdempotencyOwner(serviceOrder.serviceOrderId(), idempotencyKey);
         ApprovedBudget approved = approvedBudget(serviceOrder.serviceOrderId());
         // Revalidar sob FOR UPDATE: a inspeção anterior não autoriza reservar nem criar externamente.
@@ -149,6 +153,8 @@ public class ChargeGatewayImpl implements ChargeGateway {
 
     @Override
     public Charge createCharge(ServiceOrderPaymentContext serviceOrder, UUID budgetId, Currency currency) {
+        if (serviceOrder == null) throw new InvalidPaymentDataException("Contexto da OS é obrigatório");
+        requireOpenContext(serviceOrder.serviceOrderId());
         return createCharge(serviceOrder, budgetId, currency, false);
     }
 
@@ -178,6 +184,10 @@ public class ChargeGatewayImpl implements ChargeGateway {
                 proposed.getCurrency().getCurrencyCode(), Timestamp.from(proposed.getCreatedAt()), Timestamp.from(proposed.getUpdatedAt()));
         Charge existing = findByServiceOrderId(serviceOrder.serviceOrderId(), forUpdate).orElseThrow(ChargeNotFoundException::new);
         return requireEquivalentCharge(existing, budgetId, proposed.getAmount(), currency);
+    }
+
+    private void requireOpenContext(UUID serviceOrderId) {
+        if (contexts.lockContext(serviceOrderId)) throw new ApprovedBudgetUnavailableException();
     }
 
     private Charge requireEquivalentCharge(Charge existing, UUID budgetId, BigDecimal approvedAmount, Currency currency) {
@@ -271,6 +281,7 @@ public class ChargeGatewayImpl implements ChargeGateway {
         if (observation == null || observation.chargeId() == null) throw new InvalidPaymentDataException("Observação financeira é obrigatória");
         LoadedCharge loaded = requireForUpdate(observation.chargeId());
         String providerPaymentId = OrderPaymentEvidence.requireApproved(loaded.charge(), observation);
+        if (loaded.charge().getStatus() == ChargeStatus.REFUNDED) return loaded.charge();
         boolean alreadyPaid = loaded.charge().getStatus() == ChargeStatus.PAID;
         loaded.charge().confirmPayment(observation.attemptId(), providerPaymentId);
         if (!alreadyPaid) {
@@ -281,6 +292,16 @@ public class ChargeGatewayImpl implements ChargeGateway {
         }
         // TODO: SAGA - reconciliar PAID histórico sem EV-03; não gerar evento retroativo automaticamente (TD-007).
         return loaded.charge();
+    }
+
+    @Override
+    public void recordFullRefund(OrderObservation observation) {
+        LoadedCharge loaded = requireForUpdate(observation.chargeId());
+        String providerPaymentId = OrderPaymentEvidence.requireFullRefund(loaded.charge(), observation);
+        if (loaded.charge().recordFullRefund(observation.attemptId(), providerPaymentId)) {
+            persistState(loaded);
+            outbox.append(paymentEvents.refunded(loaded.charge()));
+        }
     }
 
     private void logPaymentConfirmationAfterCommit(Charge charge, OrderObservation observation,

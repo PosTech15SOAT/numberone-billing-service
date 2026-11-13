@@ -175,14 +175,17 @@ class OrderWebhookObservationIT {
     }
 
     @Test
-    void shouldReadCurrentOrderWhenNotificationIsOutOfOrderWithoutApplyingEitherState() throws Exception {
+    void shouldRecordOfficialRefundEvenWhenNotificationIsOutOfOrder() throws Exception {
         mvc.perform(notification(providerOrderId, "order.processed")).andExpect(status().isOk());
         Map<String, Object> before = chargeRow();
         List<Map<String, Object>> attemptsBefore = attemptRows();
         assertThat(before.get("status")).isEqualTo("PAID");
-        official = officialBody(providerOrderId, prepared.attemptId().toString(), "refunded", "refunded");
+        official = officialBody(providerOrderId, prepared.attemptId().toString(), "refunded", "refunded")
+                .replace("\"processed\"", "\"refunded\"").replace("\"accredited\"", "\"refunded\"");
         mvc.perform(notification(providerOrderId, "order.created")).andExpect(status().isOk());
-        assertThat(chargeRow()).isEqualTo(before);
+        assertThat(chargeRow().get("status")).isEqualTo("REFUNDED");
+        assertThat(jdbc.queryForList("SELECT event_type FROM integration_event_outbox WHERE charge_id=?", String.class,
+                prepared.charge().getChargeId())).containsExactlyInAnyOrder("PagamentoConfirmado", "PagamentoAtualizado");
         assertThat(attemptRows()).isEqualTo(attemptsBefore);
         assertThat(requests).hasValue(2);
     }

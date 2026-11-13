@@ -22,8 +22,15 @@ class ConfirmPaymentUseCaseTest {
         verifyNoMoreInteractions(charges);
     }
 
+    @Test void shouldDelegateConfirmedRefundForRevalidation() {
+        OrderObservation observation = observation(OrderObservation.Situation.REFUNDED);
+        useCase.execute(observation);
+        verify(charges).recordFullRefund(same(observation));
+        verifyNoMoreInteractions(charges);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = OrderObservation.Situation.class, names = "APPROVED", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = OrderObservation.Situation.class, names = {"APPROVED", "REFUNDED"}, mode = EnumSource.Mode.EXCLUDE)
     void shouldPreserveNonConclusiveAndUnsupportedObservationsWithoutMutatingCharge(OrderObservation.Situation situation) {
         useCase.execute(observation(situation));
         verifyNoInteractions(charges);

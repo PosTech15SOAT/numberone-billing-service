@@ -2,7 +2,7 @@ package br.com.fiap.numberone.billing.payment.infrastructure.rest.dtos;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-/** PROPOSTA CT-02A do HTML; campos adicionais não são necessários ao consumidor. */
+/** Identidade e estado da OS no CT-02A. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ServiceOrderPaymentResponse(String serviceOrderId, String status) {
     @Override

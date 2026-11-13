@@ -31,4 +31,5 @@ public interface ChargeGateway {
     Charge confirmAttemptExpiration(UUID chargeId, UUID attemptId);
     /** Revalida a evidência sob lock e persiste PAID + EV-03 no mesmo commit. */
     Charge confirmPayment(OrderObservation observation);
+    void recordFullRefund(OrderObservation observation);
 }

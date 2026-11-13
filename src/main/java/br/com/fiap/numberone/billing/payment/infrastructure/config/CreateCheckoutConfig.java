@@ -18,6 +18,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import br.com.fiap.numberone.billing.payment.infrastructure.rest.ServiceOrderPaymentRestGateway;
 import br.com.fiap.numberone.billing.payment.infrastructure.rest.ServiceOrderPaymentMapper;
+import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
 
 import java.net.http.HttpClient;
 
@@ -37,8 +38,17 @@ public class CreateCheckoutConfig {
     @Bean
     @ConditionalOnMissingBean(ServiceOrderPaymentGateway.class)
     ServiceOrderPaymentGateway serviceOrderPaymentGateway(ServiceOrderPaymentProperties properties,
-            @Qualifier("paymentServiceOrderHttpClient") ObjectProvider<HttpClient> clients) {
-        // TODO: SAGA - habilitar CT-02A no EKS somente após definir autenticação com Matheus e Marcelo.
+            @Qualifier("paymentServiceOrderHttpClient") ObjectProvider<HttpClient> clients, Environment environment) {
+        String token = environment.getProperty("billing.integrations.os-token", "");
+        if (!token.isBlank()) {
+            HttpClient http = HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build();
+            JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(http);
+            requests.setReadTimeout(properties.readTimeout());
+            return new ServiceOrderPaymentRestGateway(RestClient.builder()
+                    .baseUrl(environment.getRequiredProperty("billing.integrations.os-base-url"))
+                    .requestFactory(requests).requestInterceptor(new ServiceRequestHeaders(token)).build(),
+                    new ServiceOrderPaymentMapper(true));
+        }
         if (!properties.localUnauthenticatedEnabled()) {
             return serviceOrderId -> { throw new ServiceOrderPaymentUnavailableException(); };
         }

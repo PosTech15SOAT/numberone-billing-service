@@ -37,6 +37,7 @@ public class RegisterBudgetApprovalUseCase {
             var context = serviceOrderGateway.findByServiceOrderId(budget.getServiceOrderId());
             ServiceOrderContextValidation.requireMatching(context, budget.getServiceOrderId());
             context.validateBudgetSendingEligibility();
+            ServiceOrderContextValidation.requireQuotedComposition(budget, context);
         }
         return budgetGateway.registerApproval(budgetId, employeeId);
     }

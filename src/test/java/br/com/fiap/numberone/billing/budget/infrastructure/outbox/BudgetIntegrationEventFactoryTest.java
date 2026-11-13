@@ -59,6 +59,18 @@ class BudgetIntegrationEventFactoryTest {
     }
 
     @Test
+    void shouldPublishCompositionAndCanonicalMoneyForSaga() {
+        var budget = Budget.createDraft(UUID.randomUUID(), 3, new BigDecimal("550"),
+                new BudgetComposition(List.of(), 12));
+        budget.markAsSent();
+        budget.approve();
+        var payload = jsonMapper.readTree(factory.create(budget, UUID.randomUUID()).envelope()).path("payload");
+        assertThat(payload.path("compositionVersion").asInt()).isEqualTo(12);
+        assertThat(payload.path("currency").asText()).isEqualTo("BRL");
+        assertThat(payload.path("approvedAmount").asText()).isEqualTo("550.00");
+    }
+
+    @Test
     void shouldRejectStatesWithoutAnIntegrationFactAndMissingCorrelation() {
         Budget draft = draft();
         assertThatThrownBy(() -> factory.create(draft, UUID.randomUUID()))
