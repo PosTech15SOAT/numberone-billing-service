@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: numberone-billing
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: numberone-billing-service
+      app.kubernetes.io/part-of: numberone
+    includeSelectors: false
+    includeTemplates: true
+
+patches:
+  - path: configmap-patch.yaml

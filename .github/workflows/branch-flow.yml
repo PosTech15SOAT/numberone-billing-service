@@ -1,0 +1,62 @@
+name: Abertura de Pull Request
+
+on:
+  push:
+    branches:
+      - feature/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: abrir-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  open-pull-request:
+    name: Abrir Pull Request para develop
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Consultar Pull Request existente e criar quando necessário
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          existing_pr=$(gh pr list --base develop --head "$SOURCE_BRANCH" --state open \
+            --json number,headRepository --jq 'map(select(.headRepository.nameWithOwner == env.GH_REPO)) | .[0].number // empty')
+          if [[ -n "$existing_pr" ]]; then
+            echo "Pull Request aberto já existente: #$existing_pr."
+            exit 0
+          fi
+
+          comparison=$(gh api "repos/$GH_REPO/compare/develop...$SOURCE_BRANCH" --jq '.ahead_by')
+          if [[ "$comparison" == "0" ]]; then
+            echo "Branch sem commits novos em relação a develop; nenhum Pull Request necessário."
+            exit 0
+          fi
+
+          body_file=$(mktemp)
+          trap 'rm -f "$body_file"' EXIT
+          cat > "$body_file" <<'EOF'
+          ## Integração em develop
+
+          Pull Request criado automaticamente após um push na branch de origem.
+
+          A integração depende da revisão manual do diff e da aprovação do CI (testes, cobertura consolidada mínima de 80% e build Docker).
+
+          O merge deve ser realizado exclusivamente de forma manual. Este workflow não aprova o PR, não executa merge e não exclui a branch.
+
+          Se o GitHub exibir uma solicitação de aprovação para executar os workflows deste PR, uma pessoa com permissão de escrita deve autorizá-los.
+          EOF
+
+          if ! gh pr create --base develop --head "$SOURCE_BRANCH" \
+            --title "Integração: $SOURCE_BRANCH → develop" --body-file "$body_file"; then
+            echo "::error::Não foi possível criar o Pull Request. Verifique as permissões do GITHUB_TOKEN e a opção Allow GitHub Actions to create and approve pull requests em Settings > Actions > General."
+            exit 1
+          fi

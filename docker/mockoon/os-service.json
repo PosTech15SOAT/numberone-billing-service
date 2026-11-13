@@ -1,0 +1,496 @@
+{
+  "uuid": "82573e2f-fe61-414d-91d9-fe05ff364dc7",
+  "lastMigration": 33,
+  "name": "NumberOne OS Service (CT-03 provisório)",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3001,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "7dc3a636-7fd9-4cf9-8202-dc0d49d945cf",
+      "type": "http",
+      "documentation": "CT-03 provisório consumido pelo Billing. customerEmail e status por item são complementos pendentes de alinhamento.",
+      "method": "get",
+      "endpoint": "internal/service-orders/:serviceOrderId/quotation-context",
+      "responses": [
+        {
+          "uuid": "5d5fce93-fb76-4b55-ac1a-9d33b52b83e9",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000101\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000301\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000401\",\n      \"serviceAmount\": \"150.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n          \"quantity\": 2\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000302\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000402\",\n      \"serviceAmount\": \"40.00\",\n      \"status\": \"COMPLETED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n          \"quantity\": 1\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000303\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000403\",\n      \"serviceAmount\": \"999.00\",\n      \"status\": \"CANCELLED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n          \"quantity\": 99\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Sucesso: serviços, insumos e item cancelado",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000101",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "8fdb7f2a-e765-4388-aa83-6f34a71a452e",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000102\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": []\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Sucesso: OS sem itens",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000102",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "fd6db99b-dd99-43f6-92ad-dc08ffb538a8",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000103\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": null,\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000301\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000401\",\n      \"serviceAmount\": \"150.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n          \"quantity\": 2\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000302\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000402\",\n      \"serviceAmount\": \"40.00\",\n      \"status\": \"COMPLETED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n          \"quantity\": 1\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000303\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000403\",\n      \"serviceAmount\": \"999.00\",\n      \"status\": \"CANCELLED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n          \"quantity\": 99\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Sucesso: sem e-mail cadastrado",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000103",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "0db50bcf-25e7-433c-9d61-6d7197952aac",
+          "body": "",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "OS inelegível para orçamento",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000104",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "4938164b-d134-495b-9caa-716c1d682442",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000105\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000305\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000405\",\n      \"serviceAmount\": \"10.00\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n          \"quantity\": 1\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Complemento CT-03 ausente: status de item",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000105",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "50e2361a-1947-437b-b196-d0f7d6e5a67a",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000106\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": null\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Resposta CT-03 inválida: items nulo",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000106",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "74567728-f35a-496f-a524-f695635f8ea5",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000107\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000301\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000401\",\n      \"serviceAmount\": \"150.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n          \"quantity\": 2\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000302\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000402\",\n      \"serviceAmount\": \"40.00\",\n      \"status\": \"COMPLETED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n          \"quantity\": 1\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000303\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000403\",\n      \"serviceAmount\": \"999.00\",\n      \"status\": \"CANCELLED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n          \"quantity\": 99\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 6500,
+          "statusCode": 200,
+          "label": "Timeout CT-03 (acima do read timeout local de 5s)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000107",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "f211a162-d06e-4001-be6a-d6f1af689a16",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000108\",\n  \"status\": \"REJECTED\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000301\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000401\",\n      \"serviceAmount\": \"150.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n          \"quantity\": 2\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000302\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000402\",\n      \"serviceAmount\": \"40.00\",\n      \"status\": \"COMPLETED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n          \"quantity\": 1\n        }\n      ]\n    },\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000303\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000403\",\n      \"serviceAmount\": \"999.00\",\n      \"status\": \"CANCELLED\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n          \"quantity\": 99\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Sucesso: OS em estado REJECTED elegível",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000108",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "2a005b73-b3d1-4eb2-8ef9-380f4f811d6e",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000109\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000309\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000409\",\n      \"serviceAmount\": \"10.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000211\",\n          \"quantity\": 1\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Inventory: preço ausente para o item solicitado",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000109",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "4abfa5bc-a2d1-43c2-a636-4b8ef7680e3c",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000110\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000310\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000410\",\n      \"serviceAmount\": \"10.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000212\",\n          \"quantity\": 1\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Inventory indisponível (caso associado)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000110",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "0634db6d-4fc1-4d76-9286-3bdb0ad0eb6f",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000111\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000311\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000411\",\n      \"serviceAmount\": \"10.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000213\",\n          \"quantity\": 1\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Inventory retorna resposta inválida (caso associado)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000111",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "400bacc3-8895-4d44-8454-6178a59f5da3",
+          "body": "{\n  \"serviceOrderId\": \"00000000-0000-4000-8000-000000000112\",\n  \"status\": \"IN_DIAGNOSIS\",\n  \"customerEmail\": \"{{getEnvVar 'MOCKOON_CUSTOMER_EMAIL'}}\",\n  \"items\": [\n    {\n      \"serviceOrderItemId\": \"00000000-0000-4000-8000-000000000312\",\n      \"automotiveServiceId\": \"00000000-0000-4000-8000-000000000412\",\n      \"serviceAmount\": \"10.00\",\n      \"status\": \"PENDING\",\n      \"supplies\": [\n        {\n          \"inventoryItemId\": \"00000000-0000-4000-8000-000000000214\",\n          \"quantity\": 1\n        }\n      ]\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Timeout Inventory (caso associado)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "serviceOrderId",
+              "value": "00000000-0000-4000-8000-000000000112",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "fc3843b7-4185-4f63-9c7c-a24341bfc987",
+          "body": "",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "OS inexistente (fallback para qualquer outro UUID)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "8c6b90ff-787c-47d5-912f-5cf8bbab826e",
+      "type": "http",
+      "documentation": "CT-02A proposto: simulação local de OS concluída; devolve o identificador solicitado. Não consulta existência real da OS.",
+      "method": "get",
+      "endpoint": "internal/service-orders/:serviceOrderId",
+      "responses": [
+        {
+          "uuid": "7a08f5a9-ee6e-4224-88ee-c4ddf97c2c9d",
+          "body": "{\n  \"serviceOrderId\": \"{{urlParam 'serviceOrderId'}}\",\n  \"status\": \"COMPLETED\",\n  \"updatedAt\": \"2026-11-10T03:00:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "OS concluída (CT-02A local)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "7dc3a636-7fd9-4cf9-8202-dc0d49d945cf"
+    },
+    {
+      "type": "route",
+      "uuid": "8c6b90ff-787c-47d5-912f-5cf8bbab826e"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "callbacks": []
+}
