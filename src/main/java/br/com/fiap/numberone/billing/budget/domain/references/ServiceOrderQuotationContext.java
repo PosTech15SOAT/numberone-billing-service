@@ -12,7 +12,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public record ServiceOrderQuotationContext(UUID serviceOrderId, String status, List<Item> items, String customerEmail) {
+public record ServiceOrderQuotationContext(UUID serviceOrderId, String status, List<Item> items, String customerEmail,
+                                           Integer compositionVersion) {
+
+    public ServiceOrderQuotationContext(UUID serviceOrderId, String status, List<Item> items, String customerEmail) {
+        this(serviceOrderId, status, items, customerEmail, null);
+    }
 
     public ServiceOrderQuotationContext(UUID serviceOrderId, String status, List<Item> items) {
         this(serviceOrderId, status, items, null);
@@ -66,7 +71,6 @@ public record ServiceOrderQuotationContext(UUID serviceOrderId, String status, L
         };
     }
 
-    // TODO: Confirmar com Matheus o status dos itens de CT-03; ausência não significa elegibilidade.
     public record Item(UUID serviceOrderItemId, UUID automotiveServiceId, BigDecimal serviceAmount,
                        String status, List<Supply> supplies) {
         public Item {

@@ -10,12 +10,20 @@ import java.util.UUID;
 
 public class ServiceOrderPaymentMapper {
     private final JsonMapper json = new JsonMapper();
+    private final boolean requireCancellationFlag;
+
+    public ServiceOrderPaymentMapper() { this(false); }
+
+    public ServiceOrderPaymentMapper(boolean requireCancellationFlag) {
+        this.requireCancellationFlag = requireCancellationFlag;
+    }
 
     public ServiceOrderPaymentContext toContext(UUID requestedId, byte[] body) {
         try {
             JsonNode document = json.readTree(body);
             if (document == null || !document.isObject() || !document.path("serviceOrderId").isString()
-                    || !document.path("status").isString()) {
+                    || !document.path("status").isString()
+                    || requireCancellationFlag && !document.path("cancellationInProgress").isBoolean()) {
                 throw new IllegalArgumentException("Resposta CT-02A exige identidade e estado textuais");
             }
             ServiceOrderPaymentResponse response = json.treeToValue(document, ServiceOrderPaymentResponse.class);
@@ -23,7 +31,8 @@ public class ServiceOrderPaymentMapper {
                     || !response.status().matches("[A-Z][A-Z_]{0,63}")) {
                 throw new IllegalArgumentException("Identidade ou estado inválido na resposta CT-02A");
             }
-            return new ServiceOrderPaymentContext(requestedId, response.status());
+            return new ServiceOrderPaymentContext(requestedId, response.status(),
+                    document.path("cancellationInProgress").asBoolean(false));
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("JSON CT-02A inválido", exception);
         }

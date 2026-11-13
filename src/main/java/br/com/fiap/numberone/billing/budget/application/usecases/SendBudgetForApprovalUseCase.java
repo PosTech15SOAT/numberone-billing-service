@@ -28,6 +28,7 @@ public class SendBudgetForApprovalUseCase {
         ServiceOrderQuotationContext context = serviceOrderGateway.findByServiceOrderId(budget.getServiceOrderId());
         ServiceOrderContextValidation.requireMatching(context, budget.getServiceOrderId());
         context.validateBudgetSending();
+        ServiceOrderContextValidation.requireQuotedComposition(budget, context);
         return budgetGateway.sendForApproval(budgetId, context.customerEmail());
     }
 }

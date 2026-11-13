@@ -137,7 +137,7 @@ class PaymentConfirmationIT {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OrderObservation.Situation.class, names = "APPROVED", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = OrderObservation.Situation.class, names = {"APPROVED", "REFUNDED"}, mode = EnumSource.Mode.EXCLUDE)
     void shouldKeepStateAndReservationForNonApprovedObservation(OrderObservation.Situation situation) {
         charges.markAttemptUnknown(charge.getChargeId(), attemptId);
         Map<String, Object> before = financialRow();
@@ -239,11 +239,49 @@ class PaymentConfirmationIT {
         confirm.execute(observation);
         Map<String, Object> before = financialRow();
         List<Map<String, Object>> eventsBefore = eventRows();
-        for (OrderObservation.Situation state : List.of(OrderObservation.Situation.PENDING, OrderObservation.Situation.REJECTED, OrderObservation.Situation.REFUNDED))
+        for (OrderObservation.Situation state : List.of(OrderObservation.Situation.PENDING, OrderObservation.Situation.REJECTED))
             confirm.execute(new OrderObservation(observation.providerOrderId(), charge.getChargeId(), attemptId, charge.getServiceOrderId(), state, observation.snapshot()));
         assertThat(financialRow()).isEqualTo(before);
         assertThat(eventRows()).isEqualTo(eventsBefore);
         assertThatThrownBy(() -> charges.startAttempt(charge.getChargeId(), UUID.randomUUID())).isInstanceOf(InvalidPaymentStateException.class);
+    }
+
+    @Test void shouldPersistConfirmedRefundAndPublishOnceWithoutRegressingOnLateApproval() {
+        confirm.execute(observation);
+        var refund = fullRefund();
+        confirm.execute(refund);
+        confirm.execute(refund);
+        confirm.execute(observation);
+
+        assertThat(current().getStatus()).isEqualTo(ChargeStatus.REFUNDED);
+        assertThat(eventRows()).hasSize(2);
+        var row = eventRows().stream().filter(event -> "PagamentoAtualizado".equals(event.get("event_type")))
+                .findFirst().orElseThrow();
+        var payload = new JsonMapper().readTree(row.get("envelope").toString()).path("payload");
+        assertThat(payload.path("paymentStatus").asText()).isEqualTo("REFUNDED");
+        assertThat(payload.path("paymentVersion").asInt()).isEqualTo(2);
+        assertThat(payload.path("paymentId").asText()).isEqualTo(charge.getChargeId().toString());
+    }
+
+    @Test void shouldPersistFullRefundWhenProviderObservationPrecedesPaymentConfirmation() {
+        var refund = fullRefund();
+        confirm.execute(refund);
+        confirm.execute(observation);
+        confirm.execute(refund);
+
+        assertThat(current().getStatus()).isEqualTo(ChargeStatus.REFUNDED);
+        assertThat(current().getAttempts().getFirst().getProviderPaymentId()).isEqualTo(paymentId);
+        assertThat(eventRows()).extracting(event -> event.get("event_type")).containsExactly("PagamentoAtualizado");
+    }
+
+    private OrderObservation fullRefund() {
+        var original = observation.snapshot();
+        var refunded = new ProviderOrderSnapshot(original.providerOrderId(), "refunded", "refunded",
+                original.totalAmount(), original.totalPaidAmount(), original.currency(), original.externalReference(),
+                List.of(new ProviderPaymentSnapshot(paymentId, "refunded", "refunded", original.totalAmount(),
+                        original.totalPaidAmount())), true);
+        return new OrderObservation(original.providerOrderId(), charge.getChargeId(), attemptId,
+                charge.getServiceOrderId(), OrderObservation.Situation.REFUNDED, refunded);
     }
 
     @Test void shouldEnforceUniqueLogicalEventInPostgres() {
@@ -307,12 +345,12 @@ class PaymentConfirmationIT {
         List<Map<String, Object>> attemptsBefore = jdbc.queryForList("SELECT * FROM " + schema + ".payment_attempt");
         List<Map<String, Object>> checksums = jdbc.queryForList("SELECT version,checksum FROM " + schema + ".flyway_schema_history ORDER BY installed_rank");
         Flyway current = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).locations("classpath:db/migration").load();
-        assertThat(current.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(current.migrate().migrationsExecuted).isEqualTo(2);
         assertThat(current.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("SELECT * FROM " + schema + ".charge")).isEqualTo(chargesBefore);
         assertThat(jdbc.queryForList("SELECT * FROM " + schema + ".payment_attempt")).isEqualTo(attemptsBefore);
         assertThat(jdbc.queryForList("SELECT * FROM " + schema + ".integration_event_outbox")).isEmpty();
-        assertThat(jdbc.queryForList("SELECT version,checksum FROM " + schema + ".flyway_schema_history WHERE version IS DISTINCT FROM '12' ORDER BY installed_rank")).isEqualTo(checksums);
+        assertThat(jdbc.queryForList("SELECT version,checksum FROM " + schema + ".flyway_schema_history WHERE installed_rank <= 11 ORDER BY installed_rank")).isEqualTo(checksums);
     }
 
     private void usePaidTotal(String paid) {

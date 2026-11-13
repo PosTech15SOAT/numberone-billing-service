@@ -11,6 +11,10 @@ public class ConfirmPaymentUseCase {
     public void execute(OrderObservation observation) {
         if (observation == null) throw new IllegalArgumentException("Observação financeira é obrigatória");
         // Estados não conclusivos não liberam a reserva nem encerram a tentativa automaticamente.
-        if (observation.situation() == OrderObservation.Situation.APPROVED) charges.confirmPayment(observation);
+        if (observation.situation() == OrderObservation.Situation.APPROVED) {
+            charges.confirmPayment(observation);
+        } else if (observation.situation() == OrderObservation.Situation.REFUNDED) {
+            charges.recordFullRefund(observation);
+        }
     }
 }

@@ -43,6 +43,21 @@ public final class OrderPaymentEvidence {
         return checked.snapshot().payments().getFirst().providerPaymentId();
     }
 
+    public static String requireFullRefund(Charge charge, OrderObservation observation) {
+        if (observation == null || observation.situation() != OrderObservation.Situation.REFUNDED
+                || !charge.getChargeId().equals(observation.chargeId())
+                || !charge.getServiceOrderId().equals(observation.serviceOrderId())) throw inconsistent();
+        OrderObservation checked = observe(charge, observation.providerOrderId(), observation.snapshot());
+        var snapshot = checked.snapshot();
+        if (!checked.attemptId().equals(observation.attemptId())
+                || checked.situation() != OrderObservation.Situation.REFUNDED
+                || !"refunded".equals(snapshot.statusDetail()) || snapshot.payments().size() != 1) throw inconsistent();
+        var payment = snapshot.payments().getFirst();
+        if (!"refunded".equals(payment.status()) || !"refunded".equals(payment.statusDetail())
+                || !equalMoney(payment.amount(), snapshot.totalAmount())) throw inconsistent();
+        return payment.providerPaymentId();
+    }
+
     private static boolean matchesOrderIdentity(String providerOrderId, PaymentAttempt attempt, ProviderOrderSnapshot snapshot) {
         return snapshot != null && providerOrderId.equals(snapshot.providerOrderId())
                 && attempt.getAttemptId().toString().equals(snapshot.externalReference());

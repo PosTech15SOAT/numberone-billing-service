@@ -24,6 +24,7 @@ import br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidBudgetDataE
 import br.com.fiap.numberone.billing.budget.domain.references.InventoryItemPrice;
 import br.com.fiap.numberone.billing.budget.domain.references.ServiceOrderQuotationContext;
 import br.com.fiap.numberone.billing.budget.domain.valueobjects.BudgetComposition;
+import br.com.fiap.numberone.billing.budget.domain.exceptions.BudgetCalculationException;
 import br.com.fiap.numberone.billing.budget.infrastructure.persistence.repositories.BudgetRevisionCounterRepository;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -265,6 +266,17 @@ class BudgetPersistenceIT {
         assertThat(gateway.findById(second.getBudgetId()).orElseThrow().getStatus())
                 .isEqualTo(registrationFirst ? BudgetStatus.APPROVED : BudgetStatus.DRAFT);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM integration_event_outbox WHERE service_order_id = ? AND event_type = 'OrcamentoAprovado'", Integer.class, orderId)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.00", "100000000000000000.00"})
+    void shouldKeepDraftWhenApprovalAmountCannotBeConsumedBySaga(String amount) {
+        var budget = gateway.createDraft(UUID.randomUUID(), new BigDecimal(amount), new BudgetComposition(List.of(), 1));
+
+        assertThatThrownBy(() -> gateway.registerApproval(budget.getBudgetId(), "integration-test"))
+                .isInstanceOf(BudgetCalculationException.class);
+        assertThat(gateway.findById(budget.getBudgetId()).orElseThrow().getStatus()).isEqualTo(BudgetStatus.DRAFT);
+        assertThat(outboxRows(budget.getBudgetId())).isEmpty();
     }
 
     @Test
@@ -1005,8 +1017,8 @@ class BudgetPersistenceIT {
                 Integer.class
         );
 
-        assertThat(migrationCount).isEqualTo(12);
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("12");
+        assertThat(migrationCount).isEqualTo(13);
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(flyway.info().pending()).isEmpty();
     }

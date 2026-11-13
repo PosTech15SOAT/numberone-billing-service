@@ -84,7 +84,7 @@ public final class Charge {
                 return attempt;
             }
         }
-        if (status == ChargeStatus.PAID || attempts.stream().anyMatch(attempt -> attempt.getStatus().blocksNewAttempt())) {
+        if (status != ChargeStatus.OPEN || attempts.stream().anyMatch(attempt -> attempt.getStatus().blocksNewAttempt())) {
             throw new InvalidPaymentStateException("Cobrança quitada ou com tentativa ainda não resolvida");
         }
         requirePayableAmount();
@@ -150,9 +150,24 @@ public final class Charge {
         transition(attemptId, PaymentAttemptStatus.PAID, providerPaymentId);
     }
 
+    public boolean recordFullRefund(UUID attemptId, String providerPaymentId) {
+        PaymentAttempt attempt = requireAttempt(attemptId);
+        if (status == ChargeStatus.REFUNDED) return false;
+        if (status == ChargeStatus.OPEN) {
+            // O provedor pode confirmar o estorno antes de o Billing receber a confirmação original.
+            confirmPayment(attemptId, providerPaymentId);
+        } else if (attempt.getStatus() != PaymentAttemptStatus.PAID
+                || !providerPaymentId.equals(attempt.getProviderPaymentId())) {
+            throw new InvalidPaymentStateException("O estorno diverge da tentativa quitada");
+        }
+        status = ChargeStatus.REFUNDED;
+        updatedAt = nextUpdate();
+        return true;
+    }
+
     private void transition(UUID attemptId, PaymentAttemptStatus nextStatus, String providerPaymentId) {
         PaymentAttempt attempt = requireAttempt(attemptId);
-        if (status == ChargeStatus.PAID && attempt.getStatus() != PaymentAttemptStatus.PAID) {
+        if (status != ChargeStatus.OPEN && attempt.getStatus() != PaymentAttemptStatus.PAID) {
             throw new InvalidPaymentStateException("Cobrança já quitada");
         }
         if (providerPaymentId != null && attempts.stream().anyMatch(candidate -> candidate != attempt
@@ -208,7 +223,7 @@ public final class Charge {
             if (attempt.getStatus().blocksNewAttempt()) { blockingCount++; }
             if (attempt.getStatus() == PaymentAttemptStatus.PAID) { paidCount++; }
         }
-        if (blockingCount > 1 || (status == ChargeStatus.PAID) != (paidCount == 1)) {
+        if (blockingCount > 1 || (status != ChargeStatus.OPEN) != (paidCount == 1)) {
             throw new InvalidPaymentDataException("Estado da cobrança inconsistente com suas tentativas");
         }
     }

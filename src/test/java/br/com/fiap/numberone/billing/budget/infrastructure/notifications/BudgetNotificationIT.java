@@ -121,7 +121,7 @@ class BudgetNotificationIT {
         assertThat(jdbc.queryForObject("SELECT expires_at - created_at = INTERVAL '48 hours' FROM budget_approval_authorization", Boolean.class)).isTrue();
         assertThat(row.get("status")).isEqualTo("PENDING");
         assertThat(row.get("attempt_count")).isEqualTo(0);
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("12");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     }
 
