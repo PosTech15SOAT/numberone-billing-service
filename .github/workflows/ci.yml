@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - feature/**
+      - codex/**
       - develop
       - main
   pull_request:
@@ -49,7 +50,7 @@ jobs:
       - name: Verificar disponibilidade do Docker para Testcontainers
         run: docker info
 
-      - name: Executar testes e verificar cobertura consolidada mínima de 80%
+      - name: Executar testes, cobertura mínima de 80% e análise PMD
         run: ./mvnw --batch-mode clean verify
 
       - name: Construir imagem Docker sem publicação
@@ -80,12 +81,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Publicar relatórios de testes e cobertura
+      - name: Publicar relatórios de testes, cobertura e análise estática
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: relatorios-testes-cobertura
           path: |
+            target/pmd.xml
             target/surefire-reports
             target/failsafe-reports
             target/site

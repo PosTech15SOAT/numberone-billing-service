@@ -238,6 +238,22 @@
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<version>3.28.0</version>
+				<configuration>
+					<rulesets><ruleset>${project.basedir}/config/pmd.xml</ruleset></rulesets>
+					<printFailingErrors>true</printFailingErrors>
+				</configuration>
+				<executions>
+					<execution>
+						<id>static-analysis</id>
+						<phase>verify</phase>
+						<goals><goal>check</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 </project>

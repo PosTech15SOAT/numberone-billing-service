@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="NumberOne Java" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0">
+  <description>Regras de falhas potenciais verificadas no CI dos microsserviços.</description>
+  <rule ref="category/java/errorprone.xml/BrokenNullCheck"/>
+  <rule ref="category/java/errorprone.xml/JumbledIncrementer"/>
+  <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock"/>
+  <rule ref="category/java/errorprone.xml/UnconditionalIfStatement"/>
+</ruleset>
