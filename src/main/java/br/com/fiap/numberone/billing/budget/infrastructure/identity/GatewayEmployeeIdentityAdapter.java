@@ -30,6 +30,11 @@ public class GatewayEmployeeIdentityAdapter implements EmployeeIdentityGateway {
                 || !subject.equals(subject.strip()) || subject.chars().anyMatch(Character::isISOControl)) {
             throw new EmployeeIdentityUnavailableException();
         }
+        try {
+            if (!java.util.UUID.fromString(subject).toString().equalsIgnoreCase(subject)) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException exception) {
+            throw new EmployeeIdentityUnavailableException();
+        }
         return subject;
     }
 }

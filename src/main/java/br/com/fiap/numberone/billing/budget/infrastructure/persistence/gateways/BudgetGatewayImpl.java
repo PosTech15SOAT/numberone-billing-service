@@ -22,7 +22,6 @@ import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.core.env.Environment;
 import br.com.fiap.numberone.billing.budget.application.exceptions.ExternalServiceException;
 import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,12 +48,11 @@ public class BudgetGatewayImpl implements BudgetGateway {
     private final BudgetIntegrationEventFactory eventFactory;
     private final IntegrationEventOutboxRepository outboxRepository;
     private final BudgetNotificationRepository notificationRepository;
-    private final boolean requireCompositionVersion;
 
     public BudgetGatewayImpl(BudgetRepository repository, BudgetPersistenceMapper mapper,
                              BudgetRevisionCounterRepository counterRepository, EntityManager entityManager,
                              BudgetIntegrationEventFactory eventFactory, IntegrationEventOutboxRepository outboxRepository,
-                             BudgetNotificationRepository notificationRepository, Environment environment) {
+                             BudgetNotificationRepository notificationRepository) {
         this.repository = repository;
         this.mapper = mapper;
         this.counterRepository = counterRepository;
@@ -62,17 +60,16 @@ public class BudgetGatewayImpl implements BudgetGateway {
         this.eventFactory = eventFactory;
         this.outboxRepository = outboxRepository;
         this.notificationRepository = notificationRepository;
-        this.requireCompositionVersion = !environment.getProperty("billing.integrations.os-token", "").isBlank();
     }
 
     @Override
     @Transactional
     public Budget createDraft(UUID serviceOrderId, BigDecimal quotedAmount, BudgetComposition composition) {
-        validateCompositionVersion(composition);
         counterRepository.requireOpenContext(serviceOrderId);
         int version = counterRepository.nextVersion(serviceOrderId);
         Budget.validateRevisionCreation(repository.existsByServiceOrderIdAndStatus(serviceOrderId, BudgetStatus.APPROVED));
         Budget budget = Budget.createDraft(serviceOrderId, version, quotedAmount, composition);
+        validateCompositionVersion(composition);
         Budget persisted = mapper.toDomain(repository.saveAndFlush(mapper.toEntity(budget)));
         logAfterCommit(persisted, null, null);
         return persisted;
@@ -225,8 +222,8 @@ public class BudgetGatewayImpl implements BudgetGateway {
     }
 
     private void validateCompositionVersion(BudgetComposition composition) {
-        if (requireCompositionVersion && (composition == null || composition.compositionVersion() == null
-                || composition.compositionVersion() < 1)) {
+        if (composition == null || composition.compositionVersion() == null
+                || composition.compositionVersion() < 1) {
             throw new ExternalServiceException("Orçamento sem versão de composição da OS",
                     ExternalServiceException.Failure.INVALID_RESPONSE, null);
         }

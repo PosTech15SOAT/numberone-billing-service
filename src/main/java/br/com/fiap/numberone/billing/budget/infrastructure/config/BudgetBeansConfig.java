@@ -24,7 +24,6 @@ import br.com.fiap.numberone.billing.budget.infrastructure.rest.ServiceOrderRest
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
@@ -45,16 +44,13 @@ public class BudgetBeansConfig {
 
     @Bean
     ServiceOrderGateway serviceOrderGateway(BudgetIntegrationProperties properties,
-                                            JsonMapper jsonMapper, Environment environment) {
-        return new ServiceOrderRestGateway(client(properties.osBaseUrl(), properties, jsonMapper,
-                environment.getProperty("billing.integrations.os-token", "")));
+                                            JsonMapper jsonMapper) {
+        return new ServiceOrderRestGateway(client(properties.osBaseUrl(), properties, jsonMapper));
     }
 
     @Bean
-    InventoryGateway inventoryGateway(BudgetIntegrationProperties properties, JsonMapper jsonMapper,
-                                      Environment environment) {
-        return new InventoryRestGateway(client(properties.inventoryBaseUrl(), properties, jsonMapper,
-                environment.getProperty("billing.integrations.inventory-token", "")));
+    InventoryGateway inventoryGateway(BudgetIntegrationProperties properties, JsonMapper jsonMapper) {
+        return new InventoryRestGateway(client(properties.inventoryBaseUrl(), properties, jsonMapper));
     }
 
     @Bean
@@ -117,12 +113,12 @@ public class BudgetBeansConfig {
         return new RejectBudgetRemotelyUseCase(gateway);
     }
 
-    private RestClient client(URI baseUrl, BudgetIntegrationProperties properties, JsonMapper jsonMapper, String token) {
+    private RestClient client(URI baseUrl, BudgetIntegrationProperties properties, JsonMapper jsonMapper) {
         HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.readTimeout());
         return RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory)
-                .requestInterceptor(new ServiceRequestHeaders(token))
+                .requestInterceptor(new ServiceRequestHeaders())
                 .messageConverters(converters -> {
                     converters.removeIf(converter -> converter instanceof JacksonJsonHttpMessageConverter);
                     converters.add(new JacksonJsonHttpMessageConverter(jsonMapper));

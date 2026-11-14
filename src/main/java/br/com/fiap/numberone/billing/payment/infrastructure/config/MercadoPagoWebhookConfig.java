@@ -15,10 +15,7 @@ import org.springframework.core.env.Environment;
 public class MercadoPagoWebhookConfig {
     @Bean
     MercadoPagoSignatureValidator mercadoPagoSignatureValidator(MercadoPagoWebhookProperties properties, Environment environment) {
-        String[] profiles = environment.getActiveProfiles();
-        if (properties.enabled() && (profiles.length != 1 || !"local".equals(profiles[0]))) {
-            throw new IllegalArgumentException("Recepção de webhook Mercado Pago TEST exige exclusivamente o profile local");
-        }
+        if (properties.enabled()) MercadoPagoTestEnvironment.validate(environment);
         return new MercadoPagoSignatureValidator(properties.secret());
     }
 

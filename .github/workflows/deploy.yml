@@ -13,6 +13,7 @@ concurrency:
 jobs:
   validate:
     name: Validar o commit antes de publicar
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
     with:
       upload_jar: true
@@ -24,6 +25,7 @@ jobs:
     timeout-minutes: 20
     environment: homologation
     env:
+      DEPLOYMENT_REVISION: ${{ github.run_id }}-${{ github.run_attempt }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -33,6 +35,10 @@ jobs:
       DB_SECRET_ARN: ${{ vars.DB_SECRET_ARN }}
       OS_SERVICE_BASE_URL: ${{ vars.OS_SERVICE_BASE_URL }}
       INVENTORY_SERVICE_BASE_URL: ${{ vars.INVENTORY_SERVICE_BASE_URL }}
+      BUDGET_APPROVAL_BASE_URL: ${{ vars.BUDGET_APPROVAL_BASE_URL }}
+      OUTBOX_ENABLED: ${{ vars.OUTBOX_ENABLED || 'false' }}
+      SQS_QUEUE_URL: ${{ vars.SQS_QUEUE_URL }}
+      BUDGET_NOTIFICATION_ENCRYPTION_KEY: ${{ secrets.BUDGET_NOTIFICATION_ENCRYPTION_KEY }}
 
     steps:
       - name: Obter o mesmo commit validado
@@ -53,7 +59,7 @@ jobs:
             echo "::error::O deploy manual exige a branch main."
             exit 1
           fi
-          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER DB_SECRET_ARN OS_SERVICE_BASE_URL INVENTORY_SERVICE_BASE_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER DB_SECRET_ARN OS_SERVICE_BASE_URL INVENTORY_SERVICE_BASE_URL BUDGET_APPROVAL_BASE_URL BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::$name não foi configurado no environment homologation."
               exit 1
@@ -67,6 +73,7 @@ jobs:
             echo "::error::Informe o ARN completo do secret Billing na conta e região configuradas."
             exit 1
           fi
+          bash scripts/validate-deploy-config.sh
           python3 - <<'PY'
           import os
           from urllib.parse import urlsplit
@@ -78,6 +85,14 @@ jobs:
                       or url.username is not None or url.password is not None
                       or url.query or url.fragment or any(c.isspace() for c in value)):
                   raise SystemExit(f"::error::{name} deve ser uma URL HTTP/HTTPS sem credenciais.")
+          approval = urlsplit(os.environ["BUDGET_APPROVAL_BASE_URL"])
+          if (approval.scheme != "https" or not approval.hostname
+                  or approval.hostname in ("localhost", "127.0.0.1")
+                  or approval.username is not None or approval.password is not None
+                  or approval.query or approval.fragment
+                  or approval.path != "/api/public/orcamentos-ordem-servico/decisao"
+                  or any(c.isspace() for c in os.environ["BUDGET_APPROVAL_BASE_URL"])):
+              raise SystemExit("::error::BUDGET_APPROVAL_BASE_URL exige a URL pública HTTPS de decisão do ambiente AWS.")
           PY
 
       - name: Obter JAR validado desta execução
@@ -95,10 +110,18 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
 
+      - name: Consultar versão do cluster configurado
+        id: eks
+        run: |
+          set -euo pipefail
+          version="$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --query cluster.version --output text)"
+          [[ "$version" =~ ^1\.[0-9]+$ ]]
+          echo "kubectl=v$version.0" >> "$GITHUB_OUTPUT"
+
       - name: Configurar kubectl compatível com o cluster declarado
         uses: azure/setup-kubectl@v4
         with:
-          version: v1.36.2
+          version: ${{ steps.eks.outputs.kubectl }}
 
       - name: Verificar ECR e configurar acesso EKS
         id: cluster
@@ -145,15 +168,16 @@ jobs:
           db_port="$(jq -r '.DBInstances[0].Endpoint.Port' "$runtime_directory/rds.json")"
           jq -n --arg namespace "$K8S_NAMESPACE" \
             --arg url "jdbc:postgresql://$db_host:$db_port/numberone_billing?sslmode=require" \
-            --arg os "$OS_SERVICE_BASE_URL" --arg inventory "$INVENTORY_SERVICE_BASE_URL" '{
+            --arg region "$AWS_REGION" --arg outbox "$OUTBOX_ENABLED" --arg queue "$SQS_QUEUE_URL" \
+            --arg os "$OS_SERVICE_BASE_URL" --arg inventory "$INVENTORY_SERVICE_BASE_URL" --arg approval "$BUDGET_APPROVAL_BASE_URL" '{
               apiVersion: "v1", kind: "ConfigMap",
               metadata: {name: "numberone-billing-runtime-config", namespace: $namespace},
-              data: {DB_URL: $url, OS_SERVICE_BASE_URL: $os, INVENTORY_SERVICE_BASE_URL: $inventory}
+              data: {DB_URL: $url, OS_SERVICE_BASE_URL: $os, INVENTORY_SERVICE_BASE_URL: $inventory, BUDGET_APPROVAL_BASE_URL: $approval, AWS_REGION: $region, OUTBOX_ENABLED: $outbox, SQS_QUEUE_URL: $queue, SQS_ENDPOINT: ""}
             }' > "$runtime_directory/configmap.json"
           jq --arg namespace "$K8S_NAMESPACE" '{
               apiVersion: "v1", kind: "Secret", type: "Opaque",
               metadata: {name: "numberone-billing-secret", namespace: $namespace},
-              stringData: {DB_USERNAME: .username, DB_PASSWORD: .password}
+              stringData: {DB_USERNAME: .username, DB_PASSWORD: .password, BUDGET_NOTIFICATION_ENCRYPTION_KEY: $ENV.BUDGET_NOTIFICATION_ENCRYPTION_KEY}
             }' "$runtime_directory/database.json" > "$runtime_directory/secret.json"
 
           kubectl apply -f k8s/overlays/billing/namespace.yaml
@@ -230,7 +254,7 @@ jobs:
             echo "- Commit: $GITHUB_SHA"
             echo "- Imagem: $IMAGE_URI"
             echo "- Namespace: $K8S_NAMESPACE"
-            echo "- Service ClusterIP; integrações financeiras e workers desabilitados."
+            echo "- Service ClusterIP; integrações financeiras desabilitadas; Outbox conforme configuração explícita."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Coletar estado do rollout sem imprimir configurações ou logs da aplicação

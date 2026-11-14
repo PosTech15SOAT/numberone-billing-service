@@ -4,3 +4,6 @@ metadata:
   name: numberone-billing-config
 data:
   SPRING_PROFILES_ACTIVE: homologation
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65
+  MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE: readinessState,db
+  AWS_EC2_METADATA_DISABLED: "true"

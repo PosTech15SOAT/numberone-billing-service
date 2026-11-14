@@ -331,7 +331,7 @@ class OutboxPublicationIT {
     }
 
     private Budget draft() {
-        return budgets.createDraft(UUID.randomUUID(), new BigDecimal("550.24"), new BudgetComposition(List.of()));
+        return budgets.createDraft(UUID.randomUUID(), new BigDecimal("550.24"), new BudgetComposition(List.of(), 1));
     }
 
     private UUID pending() {

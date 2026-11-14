@@ -29,10 +29,7 @@ public class MercadoPagoCheckoutConfig {
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(name = "billing.payment.mercado-pago.enabled", havingValue = "true")
     HttpClient mercadoPagoHttpClient(MercadoPagoProperties properties, ConfigurableEnvironment environment) {
-        String[] profiles = environment.getActiveProfiles();
-        if (profiles.length != 1 || !"local".equals(profiles[0])) {
-            throw new IllegalArgumentException("Transporte Mercado Pago TEST exige exclusivamente o profile local nesta etapa");
-        }
+        MercadoPagoTestEnvironment.validate(environment);
         PropertySource<?> variables = environment.getPropertySources().get(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         if (variables == null || !properties.accessToken().equals(variables.getProperty("MERCADO_PAGO_TEST_ACCESS_TOKEN"))) {
             throw new IllegalArgumentException("Credencial Mercado Pago deve ser fornecida pela variável de ambiente dedicada");
@@ -52,12 +49,12 @@ public class MercadoPagoCheckoutConfig {
     @Bean
     @ConditionalOnProperty(name = "billing.payment.mercado-pago.enabled", havingValue = "true")
     MercadoPagoSellerIdentityVerifier mercadoPagoSellerIdentityVerifier(MercadoPagoProperties properties,
-                                      @Qualifier("mercadoPagoHttpClient") HttpClient httpClient) {
+                                      @Qualifier("mercadoPagoHttpClient") HttpClient httpClient, ConfigurableEnvironment environment) {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.readTimeout());
         RestClient identityClient = RestClient.builder().baseUrl("https://api.mercadolibre.com")
                 .requestFactory(requestFactory).build();
-        return new MercadoPagoSellerIdentityVerifier(identityClient, properties);
+        return new MercadoPagoSellerIdentityVerifier(identityClient, properties, environment.matchesProfiles("kind"));
     }
 
     @Bean

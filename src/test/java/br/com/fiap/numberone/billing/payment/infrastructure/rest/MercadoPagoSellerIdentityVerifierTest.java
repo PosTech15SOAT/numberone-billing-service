@@ -68,6 +68,15 @@ class MercadoPagoSellerIdentityVerifierTest {
     }
     @AfterEach void close() { server.stop(0); executor.shutdownNow(); http.close(); }
 
+    @Test void kindRequiresOfficialTestUserTagInAdditionToSellerId() {
+        var client = RestClient.builder().baseUrl("http://127.0.0.1:" + server.getAddress().getPort()).build();
+        verifier = new MercadoPagoSellerIdentityVerifier(client,
+                new MercadoPagoProperties(true, "TEST", TOKEN, null, null, "1234567890123"), true);
+        assertReason(Reason.IDENTITY_MISMATCH);
+        body = "{\"id\":1234567890123,\"tags\":[\"test_user\"]}";
+        assertThat(verifier.verifyExpectedSeller()).isEqualTo(TOKEN);
+    }
+
     @Test void shouldCheckCurrentIdentityOnEveryInvocationWithoutCache() {
         verifier.verifyExpectedSeller();
         verifier.verifyExpectedSeller();

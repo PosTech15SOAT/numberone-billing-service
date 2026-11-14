@@ -39,8 +39,8 @@ public class MercadoPagoOrderDetailsMapper {
     private void validateOrderFields(JsonNode root) {
         if (root == null || !root.isObject()) throw invalid();
         if (root.has("live_mode") && (!root.path("live_mode").isBoolean() || root.path("live_mode").asBoolean())) throw invalid();
-        requireTexts(root, List.of("id", "type", "processing_mode", "status", "status_detail", "total_amount", "currency", "external_reference"), true);
-        requireTexts(root, List.of("total_paid_amount"), false);
+        requireTexts(root, List.of("id", "type", "processing_mode", "status", "total_amount", "currency", "external_reference"), true);
+        requireTexts(root, List.of("status_detail", "total_paid_amount"), false);
     }
 
     private JsonNode validatedTransactions(JsonNode transactions) {
@@ -85,7 +85,8 @@ public class MercadoPagoOrderDetailsMapper {
 
     private void validateOrder(String requestedId, MercadoPagoOrderDetailsResponse data) {
         if (!requestedId.equals(data.id()) || !identifier(data.id()) || !"online".equals(data.type())
-                || !"manual".equals(data.processingMode()) || !state(data.status()) || !state(data.statusDetail())
+                || !"manual".equals(data.processingMode()) || !state(data.status())
+                || !(state(data.statusDetail()) || ("created".equals(data.status()) && data.statusDetail() == null))
                 || !"BRL".equals(data.currency()) || !data.externalReference().matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) throw invalid();
     }
 

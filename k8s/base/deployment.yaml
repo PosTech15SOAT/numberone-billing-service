@@ -64,6 +64,11 @@ spec:
                 configMapKeyRef:
                   name: numberone-billing-runtime-config
                   key: INVENTORY_SERVICE_BASE_URL
+            - name: BUDGET_APPROVAL_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: numberone-billing-runtime-config
+                  key: BUDGET_APPROVAL_BASE_URL
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:

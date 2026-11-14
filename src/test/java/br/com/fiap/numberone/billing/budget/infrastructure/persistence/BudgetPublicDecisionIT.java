@@ -295,7 +295,7 @@ class BudgetPublicDecisionIT {
         catch (InterruptedException exception) { Thread.currentThread().interrupt(); throw new IllegalStateException(exception); }
     }
     private Budget decide(String token, boolean approval) { return approval ? gateway.approveRemotely(token) : gateway.rejectRemotely(token); }
-    private Budget draft(UUID orderId) { return gateway.createDraft(orderId, new BigDecimal("123.45"), new BudgetComposition(List.of())); }
+    private Budget draft(UUID orderId) { return gateway.createDraft(orderId, new BigDecimal("123.45"), new BudgetComposition(List.of(), 1)); }
     private Budget sent() { return gateway.sendForApproval(draft(UUID.randomUUID()).getBudgetId(), "customer@example.test"); }
     private String token(Budget budget) {
         return jdbc.query("SELECT authorization_id, protected_content FROM budget_email_notification WHERE budget_id=? ORDER BY created_at DESC LIMIT 1",

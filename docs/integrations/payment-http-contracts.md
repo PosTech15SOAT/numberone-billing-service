@@ -11,7 +11,7 @@ Métodos implementados em `PaymentAdminController`:
 
 O POST recusa qualquer byte no corpo, inclusive `{}` e espaços. Chaves ausentes, repetidas ou combinadas por vírgula são 400. Não recebe valor, moeda, meio, orçamento ou status. O cliente deve conservar a mesma chave para repetir a operação.
 
-Autenticação/autorização administrativa pertence ao Gateway/Authorizer ([ADR 0006](../adr/0006-centralized-authentication.md)). Billing não valida JWT nem exige `X-Authenticated-Subject` para checkout. O isolamento da entrada administrativa continua pendente de comprovação externa; o header de auditoria Budget não muda o resultado Payment.
+No MVP, Billing não autentica nem autoriza chamadas HTTP administrativas ou internas e não valida JWT. Checkout não exige `X-Authenticated-Subject`. Acesso direto permite operações administrativas; autenticação e autorização futuras são débito técnico. A comunicação interna usa ClusterIP/DNS do Kubernetes, que não substitui controle de acesso.
 
 ### CheckoutResponse
 
@@ -49,7 +49,7 @@ Envelope `PaymentErrorResponse`: `status`, `codigo`, `mensagem`; `idCobranca` e 
 | 409 | CONFLITO_IDEMPOTENCIA | Chave/referência incompatível ou colisão de persistência |
 | 409 | CONFLITO_ESTADO_PAGAMENTO | Tentativa bloqueante/quitada ou transição incompatível |
 | 502 | INTEGRACAO_OS_INVALID_RESPONSE | Consulta de OS estruturalmente inválida ou redirect |
-| 503 | INTEGRACAO_OS_DISABLED / INTEGRACAO_OS_UNAVAILABLE | Porta desabilitada ou dependência indisponível |
+| 503 | INTEGRACAO_OS_UNAVAILABLE | Dependência indisponível |
 | 504 | INTEGRACAO_OS_TIMEOUT | Timeout de OS |
 | 504 | CHECKOUT_TIMEOUT | Timeout de preparação antes da reserva |
 | 503 | CHECKOUT_INDISPONIVEL | Comunicação/rate limit/falha de provedor na preparação |
@@ -62,7 +62,7 @@ Falhas tipadas anteriores à reserva não criam cobrança/tentativa/UNKNOWN. Fal
 
 ## Consulta externa da OS
 
-Contrato consumido por `ServiceOrderPaymentRestGateway`, ainda pendente de confirmação e autenticação com OS Service:
+Contrato consumido por `ServiceOrderPaymentRestGateway` na URL `OS_SERVICE_BASE_URL`, sem Bearer:
 
 ```http
 GET /internal/service-orders/{serviceOrderId}
@@ -75,19 +75,19 @@ Exemplo literal do mock, substituído deterministicamente com o UUID do cenário
 {
   "serviceOrderId":"00000000-0000-4000-8000-000000000101",
   "status":"COMPLETED",
+  "cancellationInProgress":false,
   "updatedAt":"2026-11-10T03:00:00Z"
 }
 ```
 
-O mapper consome somente `serviceOrderId` e `status` textuais, exige identidade correspondente e status no formato `[A-Z][A-Z_]{0,63}`. O domínio exige exatamente `COMPLETED`; não traduz `FINALIZADA`. `updatedAt` e outros campos não participam da decisão. Resposta exige application/json e no máximo 16 KiB; sem redirects/retry. 404 → OS não encontrada; 408/timeout → 504; outros 4xx/5xx → indisponível; redirect/JSON inválido → 502.
+O mapper exige `serviceOrderId` e `status` textuais e `cancellationInProgress` booleano, identidade correspondente e status no formato `[A-Z][A-Z_]{0,63}`. O domínio exige exatamente `COMPLETED` e cancelamento não iniciado; não traduz `FINALIZADA`. `updatedAt` e outros campos não participam da decisão. Resposta exige application/json e no máximo 16 KiB; sem redirects/retry. 404 → OS não encontrada; 408/timeout → 504; outros 4xx/5xx → indisponível; redirect/JSON inválido → 502.
 
 | Configuração | Padrão e limite |
 | --- | --- |
-| PAYMENT_OS_LOCAL_UNAUTHENTICATED_ENABLED | false; opt-in somente com profile exclusivamente local |
-| PAYMENT_OS_LOCAL_BASE_URL | vazio; HTTP/HTTPS somente localhost, 127.0.0.1 ou ::1, sem path adicional, credenciais, query ou fragmento |
+| OS_SERVICE_BASE_URL | URL HTTP/HTTPS da OS, usada também para orçamento |
 | billing.payment.service-order.connect-timeout / read-timeout | 2s / 5s; entre 1ms e 1min |
 
-O modo local não autentica serviço. Fora de exclusivamente local, habilitá-lo impede startup. Desabilitado, o fallback falha antes de reservar. Não há caminho de autenticação serviço a serviço para habilitação EKS. Configuração Budget e Payment da OS é separada. O mock versionado dessa rota retorna COMPLETED para o UUID recebido; não comprova conclusão real da OS.
+A resposta real da OS e a conectividade interna precisam ser verificadas na homologação integrada.
 
 A integração administrativa externa precisa aceitar o fluxo de checkout em português e a escolha de meio pelo cliente. Não há alias `/api/admin/payments` nem resposta de instruções PIX escolhidas pelo funcionário. A projeção/consumo financeiro na OS permanece dependência externa; não se presume equivalência com propostas anteriores.
 

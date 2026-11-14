@@ -145,12 +145,7 @@ Não compartilhar consultas de conteúdo protegido, tokens ou payloads completos
 
 ## Mercado Pago TEST manual
 
-Pré-condições: token obtido na seção Teste, vendedor esperado conferido independentemente, comprador de teste distinto, Budget local aprovado e OS COMPLETED no mock. Isso descreve execução disponível, sem certificar homologação remota. A consulta OS Payment tem opt-in separado:
-
-```bash
-export PAYMENT_OS_LOCAL_UNAUTHENTICATED_ENABLED=true
-export PAYMENT_OS_LOCAL_BASE_URL=http://127.0.0.1:3001
-```
+Pré-condições: token obtido na seção Teste, vendedor esperado conferido independentemente, comprador de teste distinto, Budget local aprovado e OS COMPLETED no mock. Isso descreve execução disponível, sem certificar homologação remota. A consulta de Payment usa `OS_SERVICE_BASE_URL`, também usada por Budget. A OS deve retornar `cancellationInProgress` booleano e `compositionVersion` na composição.
 
 Para Mercado Pago, leia token sem exibir/gravar no histórico:
 
@@ -190,3 +185,27 @@ export MERCADO_PAGO_WEBHOOK_ENABLED=false
 Surefire seleciona `*Test`; Failsafe executa `*IT` em integration-test/verify. Parte dos testes HTTP abre sockets loopback; ITs usam PostgreSQL 17/Testcontainers e Docker. Automação não usa credenciais reais SMTP/MP/AWS. Agentes Mockito/JaCoCo já estão no POM; não copiar caminhos pessoais de agentes. `verify` gera cobertura em `target/site/jacoco-merged/`.
 
 Seleção: `./mvnw -Dtest=BudgetCompositionTest,ChargeTest test` ou `./mvnw -Dit.test=PaymentConfirmationIT verify` (o segundo ainda passa por Surefire). `-o` requer dependências em cache. [Observabilidade](observability.md), [qualidade](quality.md), [débitos](../technical-debt.md).
+
+## URL pública dos e-mails por ambiente
+
+`BUDGET_APPROVAL_BASE_URL` é a URL acessível pelo navegador do destinatário,
+com o caminho `/api/public/orcamentos-ordem-servico/decisao`. Não usar DNS
+interno de Service Kubernetes ou nomes de containers. O endereço público não
+pode ser deduzido de `SPRING_PROFILES_ACTIVE`: depende da porta publicada ou
+do domínio/Ingress do ambiente.
+
+- JVM local: configurar a variável no `.env` com a porta HTTP efetivamente usada.
+- Compose de histórico: o overlay `numberone-service-order/compose.history.yaml`
+  usa `http://localhost:${HISTORY_BILLING_PORT:-19081}/api/public/orcamentos-ordem-servico/decisao`.
+  `BUDGET_APPROVAL_BASE_URL` permite sobrescrever a URL para acesso por outro computador.
+- Kind: ConfigMap runtime usa `http://localhost:18081/api/public/orcamentos-ordem-servico/decisao`.
+  Manter o port-forward `18081:8081` ativo enquanto abre o e-mail no host.
+- AWS: GitHub Variable `BUDGET_APPROVAL_BASE_URL` no Environment `homologation`.
+  O workflow exige HTTPS e o caminho de decisão, recusa loopback e injeta a URL
+  no ConfigMap runtime. Configurar o domínio real roteado ao Billing/Gateway;
+  a verificação estática não comprova DNS, certificado ou Ingress provisionados.
+
+`localhost` refere-se ao computador que abre o link. Em celular ou outra máquina,
+usar o domínio HTTPS acessível a esse dispositivo. A alteração de configuração
+não reescreve mensagens já enviadas: o reenvio oficial revoga a autorização
+anterior e produz um novo link. A chave AES deve ser preservada.

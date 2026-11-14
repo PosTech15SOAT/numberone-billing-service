@@ -16,9 +16,9 @@ class GatewayEmployeeIdentityAdapterTest {
     void shouldReadOnlyTheConfiguredAuditContextHeader() {
         var request = new MockHttpServletRequest();
         request.addHeader("X-Authenticated-Subject", "ignored");
-        request.addHeader("X-Platform-Employee", "validated-subject");
+        request.addHeader("X-Platform-Employee", "550e8400-e29b-41d4-a716-446655440000");
         var adapter = new GatewayEmployeeIdentityAdapter(request, new EmployeeIdentityProperties("X-Platform-Employee"));
-        assertThat(adapter.currentEmployeeId()).isEqualTo("validated-subject");
+        assertThat(adapter.currentEmployeeId()).isEqualTo("550e8400-e29b-41d4-a716-446655440000");
     }
 
     @ParameterizedTest

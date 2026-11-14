@@ -32,7 +32,7 @@ sequenceDiagram
 ```
 
 1. `inspectCheckout` recusa transação chamadora e abre transação curta: verifica dono global da chave, exatamente um Budget APPROVED local e equivalência da cobrança existente. Replay válido retorna antes de consultar OS/vendedor. Alteração/inconsistência comercial local ainda pode impedir replay.
-2. Sem replay, exige OS correspondente em `COMPLETED`, consultada por `ServiceOrderPaymentGateway`. O transporte atual dessa porta só é habilitável com opt-in local/loopback.
+2. Sem replay, exige OS correspondente em `COMPLETED`, consultada por `ServiceOrderPaymentGateway`. A consulta usa `OS_SERVICE_BASE_URL`, sem autenticação entre serviços, e exige `cancellationInProgress=false` booleano.
 3. `CheckoutGateway.validateSeller` consulta `/users/me`, fora de transação, e compara o titular com o vendedor de teste esperado, obtido independentemente no painel. Falha não cria cobrança/tentativa/reserva/UNKNOWN. O resultado é uma operação de criação de uso único com a credencial capturada na infraestrutura.
 4. `prepareCheckout` usa `Propagation.NEVER` e `TransactionTemplate`: revalida os dados sob locks, lê valor aprovado sob `FOR SHARE`, cria/recupera Charge, usa `FOR UPDATE` na raiz e cria tentativa PENDING com reserva permanente. Somente tentativa nascida nessa invocação recebe `acquired=true`.
 5. Somente quem adquiriu e confirmou a reserva faz POST externo. Concorrentes podem repetir consultas prévias, mas não ganham outra autorização de criação. A operação usa a mesma credencial validada; não repete GET de vendedor antes do POST.

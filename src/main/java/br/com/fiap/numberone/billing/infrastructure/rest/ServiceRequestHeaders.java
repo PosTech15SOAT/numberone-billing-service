@@ -11,16 +11,9 @@ import java.io.IOException;
 import java.util.UUID;
 
 public class ServiceRequestHeaders implements ClientHttpRequestInterceptor {
-    private final String token;
-
-    public ServiceRequestHeaders(String token) {
-        this.token = token;
-    }
-
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
             throws IOException {
-        if (!token.isBlank()) request.getHeaders().setBearerAuth(token);
         if (request.getHeaders().getFirst("X-Correlation-Id") == null) {
             request.getHeaders().set("X-Correlation-Id", correlationId().toString());
         }

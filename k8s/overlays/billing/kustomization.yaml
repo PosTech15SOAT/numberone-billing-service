@@ -16,3 +16,20 @@ labels:
 
 patches:
   - path: configmap-patch.yaml
+  - target: {kind: Deployment, name: numberone-billing}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: numberone-billing}
+      spec:
+        template:
+          spec:
+            containers:
+              - name: billing
+                envFrom:
+                  - configMapRef: {name: numberone-billing-config}
+                  - configMapRef: {name: numberone-billing-runtime-config}
+                env:
+                  - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: BUDGET_NOTIFICATION_ENCRYPTION_KEY}
