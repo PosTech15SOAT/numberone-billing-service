@@ -76,6 +76,9 @@ class BillingApplicationTest {
     @MockitoBean
     private BudgetNotificationRepository notificationRepository;
 
+    @MockitoBean
+    br.com.fiap.numberone.billing.budget.application.gateways.BillingSagaStore billingSagaStore;
+
     @MockitoBean(name = "dbHealthIndicator")
     private HealthIndicator databaseHealth;
 

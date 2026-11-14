@@ -121,7 +121,7 @@ class BudgetNotificationIT {
         assertThat(jdbc.queryForObject("SELECT expires_at - created_at = INTERVAL '48 hours' FROM budget_approval_authorization", Boolean.class)).isTrue();
         assertThat(row.get("status")).isEqualTo("PENDING");
         assertThat(row.get("attempt_count")).isEqualTo(0);
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("12");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     }
 
@@ -472,7 +472,7 @@ class BudgetNotificationIT {
     private Budget sent() { return budgets.sendForApproval(draft(UUID.randomUUID()).getBudgetId(), "customer@example.test"); }
     private Budget draft(UUID serviceOrderId) {
         return budgets.createDraft(serviceOrderId, new BigDecimal("123.45"), new BudgetComposition(List.of(
-                new BudgetComposition.ServiceItem(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, "COMPLETED", List.of()))));
+                new BudgetComposition.ServiceItem(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, "COMPLETED", List.of())), 1));
     }
     private Map<String, Object> notification() { return jdbc.queryForMap("SELECT * FROM budget_email_notification ORDER BY created_at DESC, notification_id DESC LIMIT 1"); }
     private String hash() { return jdbc.queryForObject("SELECT token_hash FROM budget_approval_authorization", String.class); }

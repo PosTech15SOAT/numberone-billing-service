@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
+import java.math.RoundingMode;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
@@ -39,8 +40,16 @@ public class BudgetIntegrationEventFactory {
         payload.put("serviceOrderId", budget.getServiceOrderId().toString());
         payload.put("budgetId", budget.getBudgetId().toString());
         payload.put("budgetVersion", budget.getBudgetVersion());
+        var composition = budget.getComposition();
+        Integer compositionVersion = composition == null ? null : composition.compositionVersion();
+        if (compositionVersion != null) payload.put("compositionVersion", compositionVersion);
         if (budget.getStatus() == BudgetStatus.APPROVED) {
-            payload.put("approvedAmount", budget.getApprovedAmount().toPlainString());
+            var amount = budget.getApprovedAmount();
+            if (compositionVersion != null) {
+                payload.put("currency", "BRL");
+                amount = amount.setScale(2, RoundingMode.UNNECESSARY);
+            }
+            payload.put("approvedAmount", amount.toPlainString());
         }
         return new BudgetIntegrationEvent(eventId, eventType, 1, budget.getServiceOrderId(), budget.getBudgetId(),
                 budget.getBudgetVersion(), occurredAt, jsonMapper.writeValueAsString(envelope));

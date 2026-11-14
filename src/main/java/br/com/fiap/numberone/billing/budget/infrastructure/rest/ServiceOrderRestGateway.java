@@ -68,7 +68,8 @@ public class ServiceOrderRestGateway implements ServiceOrderGateway {
             throw invalidResponse(null);
         }
         var items = response.items().stream().map(this::toItem).toList();
-        return new ServiceOrderQuotationContext(response.serviceOrderId(), response.status(), items, response.customerEmail());
+        return new ServiceOrderQuotationContext(response.serviceOrderId(), response.status(), items,
+                response.customerEmail(), response.compositionVersion());
     }
 
     private ServiceOrderQuotationContext.Item toItem(ItemResponse item) {
@@ -118,7 +119,8 @@ public class ServiceOrderRestGateway implements ServiceOrderGateway {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ContextResponse(UUID serviceOrderId, String status, List<ItemResponse> items, String customerEmail) {
+    public record ContextResponse(UUID serviceOrderId, String status, List<ItemResponse> items,
+                                  String customerEmail, Integer compositionVersion) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

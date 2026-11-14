@@ -52,7 +52,6 @@ class ApplicationPropertiesTest {
         assertThat(payment.enabled()).isFalse();
         assertThat(payment.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
         assertThat(payment.readTimeout()).isEqualTo(Duration.ofSeconds(5));
-        assertThat(serviceOrder.localUnauthenticatedEnabled()).isFalse();
         assertThat(serviceOrder.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
         assertThat(serviceOrder.readTimeout()).isEqualTo(Duration.ofSeconds(5));
         assertThat(binder.bind("billing.payment.mercado-pago-webhook", MercadoPagoWebhookProperties.class).get().enabled()).isFalse();

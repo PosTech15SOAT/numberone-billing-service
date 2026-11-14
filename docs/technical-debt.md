@@ -6,9 +6,9 @@ Registro de lacunas atuais verificadas no código/configurações. Comportamento
 
 **Situação:** confirmação externa pendente. OS fornece contexto de orçamento (`GET /internal/service-orders/{id}/quotation-context`) e estado para pagamento (`GET /internal/service-orders/{id}`); Inventory fornece preços por POST. Os mocks demonstram apenas o contrato consumido pelo Billing. Status dos itens/e-mail no contexto, rota/erros/projeções e política monetária precisam de acordo com OS/Inventory. A consulta interna do histórico Budget também é uma implementação local, sem aceite externo comprovado.
 
-Os clientes Budget não configuram identidade de serviço. O cliente OS de Payment é deliberadamente desabilitado por padrão; só aceita opt-in exclusivamente local/loopback sem autenticação. Mercado Pago/webhook habilitados recusam profiles diferentes de exclusivamente local. **Impacto:** a jornada completa não está habilitada para EKS.
+No MVP, chamadas internas usam ClusterIP/DNS sem autenticação HTTP. Budget e Payment usam `OS_SERVICE_BASE_URL`; Inventory usa `INVENTORY_SERVICE_BASE_URL`. O checkout exige status `COMPLETED` e `cancellationInProgress` booleano. Mercado Pago/webhook habilitados ainda recusam profiles diferentes de exclusivamente local. **Impacto:** a jornada financeira completa não está habilitada para EKS.
 
-**Critério de resolução:** confirmar payloads/estados/rotas/erros e implementar/testar a identidade/autorização de serviço e a política operacional de ambiente, sem usar profile local para contornar guardas. Fontes: [Budget HTTP](integrations/budget-http-contracts.md), [Payment HTTP](integrations/payment-http-contracts.md), [ADR 0012](adr/0012-local-test-seller-verification.md).
+**Critério de resolução:** confirmar payloads/estados/rotas/erros em integração real e, em etapa futura, definir e implementar autenticação/autorização entre serviços e política operacional de ambiente, sem contornar guardas TEST. Fontes: [Budget HTTP](integrations/budget-http-contracts.md), [Payment HTTP](integrations/payment-http-contracts.md), [ADR 0012](adr/0012-local-test-seller-verification.md).
 
 ## Consumo de eventos e coordenação externa
 
@@ -60,7 +60,7 @@ Os clientes Budget não configuram identidade de serviço. O cliente OS de Payme
 
 ## Isolamento da entrada e homologação operacional
 
-**Situação:** Gateway/Authorizer é decisão da plataforma, não implementação do backend. Acesso direto não é autenticado pelo Billing; header de funcionário é somente auditoria. Não foram comprovados ingresso AWS, permissões, bloqueio de bypass, sobrescrita de headers ou isolamento de túnel. Há registros documentais anteriores de relato de caminho feliz local; evidência reproduzível suficiente de homologação integral não acompanha este repositório.
+**Situação:** no MVP não há autenticação nem autorização HTTP nos serviços. Acesso direto ao Billing permite operações; o header de funcionário é apenas autoria declarada. Controle de acesso futuro e isolamento de rede permanecem pendentes. Há registros documentais anteriores de relato de caminho feliz local; evidência reproduzível suficiente de homologação integral não acompanha este repositório.
 
 **Impacto:** exposição indevida é um risco condicionado à infraestrutura, não incidente demonstrado. Sucesso em mocks/provedor isolado não certifica API → banco → webhook → Outbox → OS.
 

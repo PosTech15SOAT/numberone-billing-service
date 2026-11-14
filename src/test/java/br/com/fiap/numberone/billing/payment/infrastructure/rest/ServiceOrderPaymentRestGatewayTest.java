@@ -100,6 +100,24 @@ class ServiceOrderPaymentRestGatewayTest {
     }
 
     @Test
+    void shouldBlockCancellationInProgress() {
+        response = body(orderId, "COMPLETED").replace("\"cancellationInProgress\":false", "\"cancellationInProgress\":true");
+        assertThatThrownBy(() -> gateway.findById(orderId).requireCompleted()).isInstanceOf(RuntimeException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "\"false\"", "0"})
+    void shouldRejectInvalidCancellationFlag(String value) {
+        response = body(orderId, "COMPLETED").replace("\"cancellationInProgress\":false", "\"cancellationInProgress\":" + value);
+        assertFailure(Failure.INVALID_RESPONSE);
+    }
+
+    @Test void shouldRejectMissingCancellationFlag() {
+        response = body(orderId, "COMPLETED").replace(",\"cancellationInProgress\":false", "");
+        assertFailure(Failure.INVALID_RESPONSE);
+    }
+
+    @Test
     void shouldMapNotFoundWithoutCopyingPrivateBody() {
         status = 404;
         response = "private-token-private-email";
@@ -182,6 +200,6 @@ class ServiceOrderPaymentRestGatewayTest {
     }
 
     private String body(UUID id, String status) {
-        return "{\"serviceOrderId\":\"" + id + "\",\"status\":\"" + status + "\",\"updatedAt\":\"2026-11-09T12:00:00Z\"}";
+        return "{\"serviceOrderId\":\"" + id + "\",\"status\":\"" + status + "\",\"cancellationInProgress\":false,\"updatedAt\":\"2026-11-09T12:00:00Z\"}";
     }
 }

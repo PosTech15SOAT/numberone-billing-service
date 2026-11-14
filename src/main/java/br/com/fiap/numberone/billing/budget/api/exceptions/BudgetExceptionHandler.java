@@ -65,7 +65,8 @@ public class BudgetExceptionHandler {
         return error(409, "O orçamento foi alterado por outra operação. Consulte o estado atual antes de tentar novamente");
     }
 
-    @ExceptionHandler({ObsoleteBudgetRevisionException.class, ApprovedBudgetExistsException.class})
+    @ExceptionHandler({ObsoleteBudgetRevisionException.class, ApprovedBudgetExistsException.class,
+            br.com.fiap.numberone.billing.budget.application.exceptions.BudgetContextClosedException.class})
     public ResponseEntity<ErrorResponse> revisionConflict(RuntimeException exception) {
         ObservationLog.safely(() -> LOGGER.atWarn().addKeyValue("event.code", "BUDGET_REVISION_CONFLICT")
                 .addKeyValue("error.type", exception.getClass().getName()).log("Operação de orçamento rejeitada"));

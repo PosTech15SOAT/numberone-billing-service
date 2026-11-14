@@ -81,7 +81,7 @@ class IntegrationObservationTest {
         var builder = RestClient.builder().baseUrl("http://os.test");
         var server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://os.test/internal/service-orders/" + id)).andRespond(withSuccess(
-                "{\"serviceOrderId\":\"" + id + "\",\"status\":\"COMPLETED\"}", MediaType.APPLICATION_JSON));
+                "{\"serviceOrderId\":\"" + id + "\",\"status\":\"COMPLETED\",\"cancellationInProgress\":false}", MediaType.APPLICATION_JSON));
         try (var logs = new EcsLogCapture(IntegrationObservation.class)) {
             var result = new ServiceOrderPaymentRestGateway(builder.build(), new ServiceOrderPaymentMapper()).findById(id);
             assertThat(result.serviceOrderId()).isEqualTo(id);

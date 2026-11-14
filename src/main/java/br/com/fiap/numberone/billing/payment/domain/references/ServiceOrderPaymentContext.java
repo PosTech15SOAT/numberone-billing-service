@@ -6,7 +6,11 @@ import br.com.fiap.numberone.billing.payment.domain.exceptions.ServiceOrderNotCo
 import java.util.UUID;
 
 /** Snapshot confiável da OS; a consulta externa pertence à futura entrada do pagamento. */
-public record ServiceOrderPaymentContext(UUID serviceOrderId, String status) {
+public record ServiceOrderPaymentContext(UUID serviceOrderId, String status, boolean cancellationInProgress) {
+    public ServiceOrderPaymentContext(UUID serviceOrderId, String status) {
+        this(serviceOrderId, status, false);
+    }
+
     public ServiceOrderPaymentContext {
         if (serviceOrderId == null || status == null || status.isBlank()) {
             throw new InvalidPaymentDataException("Referência e status da OS são obrigatórios");
@@ -14,7 +18,7 @@ public record ServiceOrderPaymentContext(UUID serviceOrderId, String status) {
     }
 
     public void requireCompleted() {
-        if (!"COMPLETED".equals(status)) {
+        if (cancellationInProgress || !"COMPLETED".equals(status)) {
             throw new ServiceOrderNotCompletedException();
         }
     }

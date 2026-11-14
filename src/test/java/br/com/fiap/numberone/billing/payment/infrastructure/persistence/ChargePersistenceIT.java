@@ -652,7 +652,7 @@ class ChargePersistenceIT {
     void shouldCreateChargeFromApprovedBudgetWithExactCentPrecisionWithoutRewritingBudget(String value) {
         UUID orderId = UUID.randomUUID();
         BigDecimal amount = new BigDecimal(value);
-        var draft = budgets.createDraft(orderId, amount, new BudgetComposition(List.of()));
+        var draft = budgets.createDraft(orderId, amount, new BudgetComposition(List.of(), 1));
         var approved = budgets.registerApproval(draft.getBudgetId(), "validated-employee");
         var before = jdbcTemplate.queryForMap("SELECT * FROM budget WHERE budget_id=?", approved.getBudgetId());
 

@@ -2,7 +2,7 @@
 
 ## Produtores, consumidores e envelope
 
-Billing publica quatro tipos de evento por sua Outbox. O consumidor de negócio esperado é OS Service; sua implementação/Inbox não está neste repositório. Billing não consome eventos SQS e não cria cobrança automaticamente ao receber `OSConcluida`.
+Billing publica cinco tipos de evento por sua Outbox. O consumidor de negócio esperado é OS Service; sua implementação/Inbox não está neste repositório. Billing não consome eventos SQS e não cria cobrança automaticamente ao receber `OSConcluida`.
 
 Todos os envelopes têm exatamente estes campos na raiz, conforme `BudgetIntegrationEventFactory` e `PaymentIntegrationEventFactory`:
 
@@ -10,25 +10,24 @@ Todos os envelopes têm exatamente estes campos na raiz, conforme `BudgetIntegra
 | --- | --- | --- |
 | eventId | string UUID | Gerado uma vez ao construir o fato; preservado em retries |
 | eventType | string | Um dos tipos da tabela abaixo |
-| schemaVersion | inteiro | 1 nas quatro fábricas atuais |
+| schemaVersion | inteiro | 1 nos eventos atuais |
 | occurredAt | string Instant UTC | Budget: instante de criação do fato, microssegundos; Payment: `Charge.updatedAt` da quitação |
-| correlationId | string UUID | Budget: novo UUID por transição; Payment: `chargeId` estável |
+| correlationId | string UUID | Budget: correlação da operação quando disponível; Payment: `chargeId` estável |
 | payload | objeto | Campos específicos abaixo |
 
-A correlação do envelope não é o MDC `correlation.id`, trace, request-id do webhook ou coordenação Saga. Budget recebe uma correlação explícita na fábrica, mas o gateway atual passa `UUID.randomUUID()`, sem propagação de uma entrada externa. Payment usa a cobrança. Esses campos não foram alterados para a documentação.
+Budget usa a correlação da operação presente no MDC, ou gera UUID quando não há contexto; Payment usa a cobrança. Não são identificadores de tracing.
 
 | eventType | Gatilho confirmado | Payload completo |
 | --- | --- | --- |
-| OrcamentoEnviado | DRAFT → SENT por solicitação de aprovação | serviceOrderId, budgetId, budgetVersion |
-| OrcamentoAprovado | Aprovação integral legada, presencial ou pública | serviceOrderId, budgetId, budgetVersion, approvedAmount |
-| OrcamentoRejeitado | Rejeição legada ou pública | serviceOrderId, budgetId, budgetVersion |
+| OrcamentoEnviado | DRAFT → SENT por solicitação de aprovação | serviceOrderId, budgetId, budgetVersion, compositionVersion |
+| OrcamentoAprovado | Aprovação integral legada, presencial ou pública | serviceOrderId, budgetId, budgetVersion, compositionVersion, approvedAmount, currency |
+| OrcamentoRejeitado | Rejeição legada ou pública | serviceOrderId, budgetId, budgetVersion, compositionVersion |
 | PagamentoConfirmado | Primeira confirmação efetiva OPEN → PAID | serviceOrderId, paymentId, paymentStatus, paymentVersion |
+| PagamentoAtualizado | Estorno integral PAID → REFUNDED | serviceOrderId, paymentId, paymentStatus, paymentVersion |
 
 ## Payloads Budget
 
-`serviceOrderId` e `budgetId` são strings UUID; `budgetVersion` é inteiro positivo e permanece igual entre envio e decisão da revisão. `approvedAmount` existe somente em `OrcamentoAprovado` e é **string decimal**, produzida por `BigDecimal.toPlainString()`, não número JSON. Não há `currency`, origem, identidade do funcionário/cliente, token, e-mail ou snapshot.
-
-`BudgetIntegrationEventFactoryTest` restaura revisão histórica de versão 7 e verifica `approvedAmount: "550.246800"`, conservando precisão e zeros. Isso comprova serialização histórica sem arredondamento, não autoriza novos valores com fração de centavo. Novos Budgets validam centavos exatos; Budget não possui moeda global. Eventuais propostas com `currency` ou representação monetária diferente não são o contrato implementado.
+`serviceOrderId` e `budgetId` são UUIDs; `budgetVersion` e `compositionVersion` identificam respectivamente a revisão do orçamento e a composição da OS. `approvedAmount` é string decimal e `currency` é `BRL` na aprovação com composição versionada. A fábrica preserva a serialização de dados históricos sem versão de composição; novos orçamentos exigem versão positiva e valores em centavos exatos.
 
 Criar DRAFT e reenviar aprovação não geram evento. A aprovação presencial de DRAFT faz SENT intermediário apenas em memória e grava somente `OrcamentoAprovado`: `OrcamentoEnviado` pode nunca existir para essa revisão. Não há campo no envelope que identifique o canal. O consumidor deve definir obtenção do contexto e não esperar indefinidamente um envio inexistente. Duplicidade/desordem não pode regredir aprovação/rejeição para SENT ou revisão antiga.
 
@@ -38,8 +37,8 @@ Criar DRAFT e reenviar aprovação não geram evento. A aprovação presencial d
 | --- | --- | --- |
 | serviceOrderId | string UUID | OS da cobrança |
 | paymentId | string UUID | `Charge.chargeId`, não `attemptId`, ID financeiro ou entidade Payment |
-| paymentStatus | string | PAID |
-| paymentVersion | inteiro | 1, primeira quitação comercial, independente de `row_version` |
+| paymentStatus | string | PAID ou REFUNDED |
+| paymentVersion | inteiro | 1 para quitação, 2 para estorno integral; independente de `row_version` |
 
 Não há valor, moeda, order, pagamento do provedor, parcelas ou meio nesse payload. O contrato externo de `PagamentoConfirmado`, sua correlação local e sua aplicação na projeção OS ainda precisam de confirmação. A existência do publicador não comprova consumidor financeiro externo.
 

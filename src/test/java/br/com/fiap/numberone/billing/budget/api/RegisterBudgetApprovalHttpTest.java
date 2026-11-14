@@ -59,7 +59,7 @@ class RegisterBudgetApprovalHttpTest {
             BudgetStatus.DRAFT, null, null, LocalDateTime.of(2026, 11, 1, 10, 0), null, new BudgetComposition(List.of()));
         mvc = mvc();
         when(gateway.findById(budget.getBudgetId())).thenReturn(Optional.of(budget));
-        when(gateway.registerApproval(budget.getBudgetId(), "validated-subject")).thenAnswer(invocation -> {
+        when(gateway.registerApproval(budget.getBudgetId(), "550e8400-e29b-41d4-a716-446655440000")).thenAnswer(invocation -> {
             budget.registerApproval(1, false, invocation.getArgument(1));
             return budget;
         });
@@ -67,7 +67,7 @@ class RegisterBudgetApprovalHttpTest {
 
     @Test
     void shouldUseAuditContextAndPreserveTheNineLegacyResponseFields() throws Exception {
-        mvc.perform(post(path()).header("X-Authenticated-Subject", "validated-subject")
+        mvc.perform(post(path()).header("X-Authenticated-Subject", "550e8400-e29b-41d4-a716-446655440000")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"funcionarioId\":\"untrusted-json-value\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(9))
                 .andExpect(jsonPath("$.id").value(budget.getBudgetId().toString()))
@@ -78,7 +78,7 @@ class RegisterBudgetApprovalHttpTest {
                 .andExpect(jsonPath("$.enviadoEm").isString()).andExpect(jsonPath("$.aprovadoEm").isString())
                 .andExpect(jsonPath("$.created_at").isString()).andExpect(jsonPath("$.updated_at").isString());
         verify(gateway).findById(budget.getBudgetId());
-        verify(gateway).registerApproval(budget.getBudgetId(), "validated-subject");
+        verify(gateway).registerApproval(budget.getBudgetId(), "550e8400-e29b-41d4-a716-446655440000");
         verifyNoMoreInteractions(gateway);
     }
 
@@ -108,8 +108,8 @@ class RegisterBudgetApprovalHttpTest {
             case 409 -> new ObsoleteBudgetRevisionException();
             default -> new InvalidBudgetStatusException("Orçamento já decidido");
         };
-        when(gateway.registerApproval(budget.getBudgetId(), "validated-subject")).thenThrow(failure);
-        mvc.perform(post(path()).header("X-Authenticated-Subject", "validated-subject"))
+        when(gateway.registerApproval(budget.getBudgetId(), "550e8400-e29b-41d4-a716-446655440000")).thenThrow(failure);
+        mvc.perform(post(path()).header("X-Authenticated-Subject", "550e8400-e29b-41d4-a716-446655440000"))
                 .andExpect(status().is(status)).andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$.status").value(status)).andExpect(jsonPath("$.errors").isArray());
     }

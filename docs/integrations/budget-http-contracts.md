@@ -20,7 +20,7 @@ Contratos efetivos de `BudgetAdminController`, `BudgetPublicController` e `Budge
 
 Nos comandos sem DTO, o controller não lê um corpo; isso não implementa a recusa explícita de bytes usada em Payment. Não há endpoints de edição/cancelamento ou OpenAPI/Swagger configurado no POM atual.
 
-Autenticação e autorização administrativas pertencem a Gateway/Authorizer ([ADR 0006](../adr/0006-centralized-authentication.md)); o Billing não valida JWT. `X-Authenticated-Subject` (nome configurável) é usado somente na auditoria presencial: um único identificador não vazio, até 255 caracteres, sem controles ou espaços nas extremidades. Ausência/contexto inválido retorna 503; o header não autentica o cliente. A procedência do header e o isolamento de rotas administrativas/internas dependem da plataforma, ainda não comprovados aqui. Rotas públicas de decisão usam o token temporário.
+No MVP, Billing não autentica nem autoriza requisições HTTP. `X-Authenticated-Subject` é um UUID declarado usado somente como autoria na auditoria presencial; ausência ou formato inválido retorna 503. O header não comprova identidade. Rotas públicas de decisão continuam usando token temporário. O acesso direto permite operações administrativas e internas; autenticação e autorização futuras são débito técnico. ClusterIP/DNS interno não substitui controle de acesso.
 
 ## Criação e representações
 

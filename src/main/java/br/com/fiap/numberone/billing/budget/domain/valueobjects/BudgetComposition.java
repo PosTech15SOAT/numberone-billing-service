@@ -12,7 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public record BudgetComposition(List<ServiceItem> items) {
+public record BudgetComposition(List<ServiceItem> items, Integer compositionVersion) {
+
+    public BudgetComposition(List<ServiceItem> items) {
+        this(items, null);
+    }
 
     public BudgetComposition {
         if (items == null) {
@@ -38,7 +42,7 @@ public record BudgetComposition(List<ServiceItem> items) {
                     return new Supply(supply.inventoryItemId(), supply.quantity(),
                             price == null ? null : price.salePrice(), price == null ? null : price.currency());
                 }).toList())).toList();
-        return new BudgetComposition(items);
+        return new BudgetComposition(items, context.compositionVersion());
     }
 
     public static void validateManualAmount(BigDecimal quotedAmount) {

@@ -1,6 +1,9 @@
 package br.com.fiap.numberone.billing.budget.infrastructure.config;
 
 import br.com.fiap.numberone.billing.budget.application.gateways.BudgetGateway;
+import br.com.fiap.numberone.billing.budget.application.gateways.BillingSagaStore;
+import br.com.fiap.numberone.billing.budget.application.usecases.CloseBillingContext;
+import br.com.fiap.numberone.billing.payment.application.gateways.ServiceOrderPaymentGateway;
 import br.com.fiap.numberone.billing.budget.application.gateways.BudgetNotificationGateway;
 import br.com.fiap.numberone.billing.budget.application.gateways.EmployeeIdentityGateway;
 import br.com.fiap.numberone.billing.budget.application.gateways.InventoryGateway;
@@ -21,6 +24,7 @@ import br.com.fiap.numberone.billing.budget.infrastructure.rest.ServiceOrderRest
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.web.client.RestClient;
@@ -32,6 +36,11 @@ import java.net.http.HttpClient;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({BudgetIntegrationProperties.class, EmployeeIdentityProperties.class, BudgetNotificationProperties.class})
 public class BudgetBeansConfig {
+
+    @Bean
+    CloseBillingContext closeBillingContext(BillingSagaStore store, ServiceOrderPaymentGateway orders) {
+        return new CloseBillingContext(store, orders);
+    }
 
     @Bean
     ServiceOrderGateway serviceOrderGateway(BudgetIntegrationProperties properties,
@@ -109,6 +118,7 @@ public class BudgetBeansConfig {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.readTimeout());
         return RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory)
+                .requestInterceptor(new ServiceRequestHeaders())
                 .messageConverters(converters -> {
                     converters.removeIf(converter -> converter instanceof JacksonJsonHttpMessageConverter);
                     converters.add(new JacksonJsonHttpMessageConverter(jsonMapper));

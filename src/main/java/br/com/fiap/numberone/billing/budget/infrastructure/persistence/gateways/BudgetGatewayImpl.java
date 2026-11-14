@@ -7,6 +7,7 @@ import br.com.fiap.numberone.billing.budget.domain.valueobjects.BudgetApprovalAu
 import br.com.fiap.numberone.billing.budget.application.gateways.BudgetGateway;
 import br.com.fiap.numberone.billing.budget.domain.entities.Budget;
 import br.com.fiap.numberone.billing.budget.domain.enums.BudgetStatus;
+import br.com.fiap.numberone.billing.budget.domain.exceptions.BudgetCalculationException;
 import br.com.fiap.numberone.billing.budget.domain.valueobjects.BudgetComposition;
 import br.com.fiap.numberone.billing.budget.infrastructure.persistence.entities.BudgetEntity;
 import br.com.fiap.numberone.billing.budget.infrastructure.persistence.mappers.BudgetPersistenceMapper;
@@ -21,6 +22,8 @@ import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import br.com.fiap.numberone.billing.budget.application.exceptions.ExternalServiceException;
+import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -62,9 +65,11 @@ public class BudgetGatewayImpl implements BudgetGateway {
     @Override
     @Transactional
     public Budget createDraft(UUID serviceOrderId, BigDecimal quotedAmount, BudgetComposition composition) {
+        counterRepository.requireOpenContext(serviceOrderId);
         int version = counterRepository.nextVersion(serviceOrderId);
         Budget.validateRevisionCreation(repository.existsByServiceOrderIdAndStatus(serviceOrderId, BudgetStatus.APPROVED));
         Budget budget = Budget.createDraft(serviceOrderId, version, quotedAmount, composition);
+        validateCompositionVersion(composition);
         Budget persisted = mapper.toDomain(repository.saveAndFlush(mapper.toEntity(budget)));
         logAfterCommit(persisted, null, null);
         return persisted;
@@ -113,7 +118,6 @@ public class BudgetGatewayImpl implements BudgetGateway {
     @Override
     @Transactional
     public Budget registerApproval(UUID budgetId, String employeeId) {
-        // TODO: SAGA - Alinhar com a OS o consumo de EV-02 sem EV-01 na aprovação presencial (AL-15).
         return transition(budgetId, (budget, latestSentVersion) -> budget.registerApproval(latestSentVersion,
                 budget.getStatus() == BudgetStatus.DRAFT
                         && repository.existsByServiceOrderIdAndStatus(budget.getServiceOrderId(), BudgetStatus.APPROVED),
@@ -196,6 +200,7 @@ public class BudgetGatewayImpl implements BudgetGateway {
         Integer latestSentVersion = repository.findLatestSentVersion(budget.getServiceOrderId(), Budget.sentRevisionStatuses());
         BudgetStatus previousStatus = budget.getStatus();
         transition.accept(budget, latestSentVersion);
+        validateApprovalForSaga(budget);
         Budget persisted = persistState(budget, entity);
         UUID eventId = appendTransitionEvent(persisted);
         revokeAuthorizationsIfDecided(persisted);
@@ -210,9 +215,28 @@ public class BudgetGatewayImpl implements BudgetGateway {
     }
 
     private UUID appendTransitionEvent(Budget budget) {
-        var event = eventFactory.create(budget, UUID.randomUUID());
+        validateCompositionVersion(budget.getComposition());
+        var event = eventFactory.create(budget, ServiceRequestHeaders.correlationId());
         outboxRepository.append(event);
         return event.eventId();
+    }
+
+    private void validateCompositionVersion(BudgetComposition composition) {
+        if (composition == null || composition.compositionVersion() == null
+                || composition.compositionVersion() < 1) {
+            throw new ExternalServiceException("Orçamento sem versão de composição da OS",
+                    ExternalServiceException.Failure.INVALID_RESPONSE, null);
+        }
+    }
+
+    private void validateApprovalForSaga(Budget budget) {
+        var composition = budget.getComposition();
+        if (budget.getStatus() == BudgetStatus.APPROVED && composition != null && composition.compositionVersion() != null) {
+            var amount = budget.getApprovedAmount().setScale(2);
+            if (amount.signum() <= 0 || amount.precision() > 19) {
+                throw new BudgetCalculationException("A aprovação exige valor positivo em BRL com até 17 dígitos inteiros");
+            }
+        }
     }
 
     private void revokeAuthorizationsIfDecided(Budget budget) {
@@ -259,7 +283,7 @@ public class BudgetGatewayImpl implements BudgetGateway {
 
     private BudgetEntity loadLockedEntity(UUID budgetId) {
         UUID serviceOrderId = repository.findServiceOrderIdByBudgetId(budgetId).orElseThrow(BudgetNotFoundException::new);
-        counterRepository.lockByServiceOrderId(serviceOrderId);
+        counterRepository.requireOpenContext(serviceOrderId);
         BudgetEntity entity = repository.findById(budgetId).orElseThrow(BudgetNotFoundException::new);
         // Recarregar também quando a transação chamadora já tinha a entidade no contexto JPA.
         entityManager.refresh(entity);

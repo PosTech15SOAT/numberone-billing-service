@@ -1,6 +1,8 @@
 # ADR 0006: Autenticação e autorização centralizadas no API Gateway
 
-**Status:** Aceita — revisada
+**Status:** Histórica — premissas de autenticação externas não se aplicam ao MVP atual
+
+> A decisão atual do MVP é não exigir autenticação ou autorização HTTP nos serviços. O acesso direto permite operações; autenticação e autorização futuras são débito técnico. A autoria presencial é um UUID declarado. Consulte os contratos HTTP atuais para a configuração vigente.
 
 **Data:** 2026-11-10
 

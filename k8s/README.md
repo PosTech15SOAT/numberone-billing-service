@@ -76,7 +76,7 @@ O ConfigMap runtime contém exatamente `DB_URL`, `OS_SERVICE_BASE_URL`, `INVENTO
 - Database e usuário próprios, com privilégios de migrations apenas dentro do database Billing. Não usar credenciais master no pod.
 - Uma réplica, requests 250m CPU/512Mi e limites 1 CPU/1Gi. Rollout usa `maxSurge: 1`, exigindo capacidade temporária para dois pods. Medir antes de ajustar.
 - UID/GID 10001, filesystem somente leitura e `/tmp` gravável limitado a 128Mi.
-- Profile Spring `homologation` preservado; `local` continua recusado no Kubernetes. Mercado Pago, webhook, Outbox, notificações e integração Payment/OS local continuam desabilitados. Guardas financeiras TEST permanecem intactas.
+- Profile Spring `homologation` preservado; `local` continua recusado no Kubernetes. Mercado Pago, webhook, Outbox e notificações continuam desabilitados; Payment consulta a OS pela URL configurada sem Bearer. Guardas financeiras TEST permanecem intactas.
 - OS/Inventory exigem URLs configuradas, mas não são consultados na criação dos clientes nem nas probes. Podem estar indisponíveis no primeiro smoke; PostgreSQL/Flyway/JPA precisam funcionar. Não testar regras comerciais neste smoke.
 
 | Probe | Path | Configuração |
@@ -121,3 +121,12 @@ git diff --check
 Esses comandos são locais. Terraform, AWS CLI, kubectl apply e deploy real não integram essa validação.
 
 Referências: [health](../docs/operations/observability.md), [database exclusivo](../docs/adr/0001-billing-database.md).
+
+A variável GitHub `BUDGET_APPROVAL_BASE_URL` é obrigatória no deploy manual e
+contém a URL pública HTTPS de decisão desse ambiente. Ela é validada antes de
+qualquer acesso AWS e enviada ao ConfigMap runtime; não usa a URL local do Kind.
+Configurar o domínio real e o roteamento público antes de habilitar SMTP.
+
+Preparação transversal AWS atual: [roteiro integrado](../docs/deployment/eks-readiness/README.md).
+O Kind compartilhado está em `numberone-billing-service/dev/kind`; os overlays deste
+repositório continuam sendo reutilizados, com os ajustes de composição feitos na raiz integrada.

@@ -34,13 +34,19 @@ public final class MercadoPagoSellerIdentityVerifier {
 
     private final RestClient client;
     private final MercadoPagoProperties properties;
+    private final boolean requireTestUser;
     private final JsonMapper json = JsonMapper.builder(JsonFactory.builder()
                     .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
     public MercadoPagoSellerIdentityVerifier(RestClient client, MercadoPagoProperties properties) {
+        this(client, properties, false);
+    }
+
+    public MercadoPagoSellerIdentityVerifier(RestClient client, MercadoPagoProperties properties, boolean requireTestUser) {
         this.client = Objects.requireNonNull(client);
         this.properties = Objects.requireNonNull(properties);
+        this.requireTestUser = requireTestUser;
     }
 
     public String verifyExpectedSeller() {
@@ -101,6 +107,14 @@ public final class MercadoPagoSellerIdentityVerifier {
             if (root == null || !root.isObject() || sellerId == null || !sellerId.isIntegralNumber()
                     || !sellerId.canConvertToLong() || sellerId.asLong() <= 0) throw failure(Reason.INVALID_RESPONSE, 200, null);
             if (!Long.toString(sellerId.asLong()).equals(properties.expectedTestSellerId())) throw failure(Reason.IDENTITY_MISMATCH, 200, null);
+            if (requireTestUser) {
+                JsonNode tags = root.get("tags");
+                boolean testUser = false;
+                if (tags != null && tags.isArray()) {
+                    for (JsonNode tag : tags) if ("test_user".equals(tag.asText())) testUser = true;
+                }
+                if (!testUser) throw failure(Reason.IDENTITY_MISMATCH, 200, null);
+            }
         } catch (JacksonException exception) {
             throw failure(Reason.INVALID_RESPONSE, 200, exception);
         }

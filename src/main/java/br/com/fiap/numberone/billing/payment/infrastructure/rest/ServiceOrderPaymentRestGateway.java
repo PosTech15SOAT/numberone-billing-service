@@ -22,7 +22,7 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.UUID;
 
-/** PROPOSTA CT-02A; construção operacional restrita pela configuração ao modo local loopback. */
+/** Cliente HTTP do contexto comercial CT-02A. */
 public class ServiceOrderPaymentRestGateway implements ServiceOrderPaymentGateway {
     private static final int MAX_RESPONSE_BYTES = 16384;
 

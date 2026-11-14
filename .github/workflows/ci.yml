@@ -11,16 +11,18 @@ on:
     branches:
       - feature/**
       - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   test-and-build:
@@ -55,6 +57,19 @@ jobs:
         env:
           IMAGE_TAG: numberone-billing-service:${{ github.sha }}
         run: docker build --tag "$IMAGE_TAG" .
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.36.2
+
+      - name: Validar manifests Kubernetes
+        env:
+          IMAGE_URI: registry.example.invalid/numberone-billing@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        run: |
+          mkdir -p rendered-manifests
+          bash scripts/render-kubernetes.sh > rendered-manifests/billing.yaml
+          docker run --rm -v "$PWD:/workspace:ro" ghcr.io/yannh/kubeconform:v0.8.0 \
+            -strict -summary -kubernetes-version 1.36.0 /workspace/rendered-manifests
 
       - name: Disponibilizar JAR validado para deploy
         if: inputs.upload_jar

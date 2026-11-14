@@ -24,6 +24,7 @@ import br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidBudgetDataE
 import br.com.fiap.numberone.billing.budget.domain.references.InventoryItemPrice;
 import br.com.fiap.numberone.billing.budget.domain.references.ServiceOrderQuotationContext;
 import br.com.fiap.numberone.billing.budget.domain.valueobjects.BudgetComposition;
+import br.com.fiap.numberone.billing.budget.domain.exceptions.BudgetCalculationException;
 import br.com.fiap.numberone.billing.budget.infrastructure.persistence.repositories.BudgetRevisionCounterRepository;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -116,7 +117,7 @@ class BudgetPersistenceIT {
     @ValueSource(strings = {"0.001", "1.234", "1.2301"})
     void shouldRejectIncompatibleNewAmountAndRollbackRevisionReservationBeforePersistence(String value) {
         UUID orderId = UUID.randomUUID();
-        assertThatThrownBy(() -> gateway.createDraft(orderId, new BigDecimal(value), new BudgetComposition(List.of())))
+        assertThatThrownBy(() -> gateway.createDraft(orderId, new BigDecimal(value), new BudgetComposition(List.of(), 1)))
                 .isInstanceOf(br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidBudgetDataException.class);
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM budget WHERE service_order_id=?", Integer.class, orderId)).isZero();
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM budget_revision_counter WHERE service_order_id=?", Integer.class, orderId)).isZero();
@@ -158,7 +159,10 @@ class BudgetPersistenceIT {
                 initial == BudgetStatus.DRAFT ? List.of("OrcamentoAprovado") : List.of("OrcamentoEnviado", "OrcamentoAprovado"));
         assertThat(events).containsAll(previousEvents);
         String approvalEnvelope = jdbcTemplate.queryForObject("SELECT envelope::text FROM integration_event_outbox WHERE budget_id = ? AND event_type = 'OrcamentoAprovado'", String.class, draft.getBudgetId());
-        assertThat(jsonMapper.readTree(approvalEnvelope).get("payload").size()).isEqualTo(4);
+        var approvalPayload = jsonMapper.readTree(approvalEnvelope).get("payload");
+        assertThat(approvalPayload.size()).isEqualTo(6);
+        assertThat(approvalPayload.get("compositionVersion").asInt()).isEqualTo(1);
+        assertThat(approvalPayload.get("currency").asString()).isEqualTo("BRL");
         assertThat(approvalEnvelope).doesNotContain("validated-subject", "approvalOrigin", "IN_PERSON");
         assertThat(approved.getApprovedByEmployeeId()).isEqualTo(stored.getApprovedByEmployeeId());
     }
@@ -267,6 +271,17 @@ class BudgetPersistenceIT {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM integration_event_outbox WHERE service_order_id = ? AND event_type = 'OrcamentoAprovado'", Integer.class, orderId)).isEqualTo(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"0.00", "100000000000000000.00"})
+    void shouldKeepDraftWhenApprovalAmountCannotBeConsumedBySaga(String amount) {
+        var budget = gateway.createDraft(UUID.randomUUID(), new BigDecimal(amount), new BudgetComposition(List.of(), 1));
+
+        assertThatThrownBy(() -> gateway.registerApproval(budget.getBudgetId(), "integration-test"))
+                .isInstanceOf(BudgetCalculationException.class);
+        assertThat(gateway.findById(budget.getBudgetId()).orElseThrow().getStatus()).isEqualTo(BudgetStatus.DRAFT);
+        assertThat(outboxRows(budget.getBudgetId())).isEmpty();
+    }
+
     @Test
     void shouldKeepLegacyApprovalOriginUnknownAndPreventEmployeeWithoutOriginInPostgres() {
         Budget draft = createDraft(UUID.randomUUID(), BigDecimal.TEN);
@@ -300,7 +315,9 @@ class BudgetPersistenceIT {
         assertThat(envelope.get("eventType").asString()).isEqualTo(type);
         assertThat(envelope.get("schemaVersion").asInt()).isEqualTo(1);
         var payload = envelope.get("payload");
-        assertThat(payload.size()).isEqualTo(target == BudgetStatus.APPROVED ? 4 : 3);
+        assertThat(payload.size()).isEqualTo(target == BudgetStatus.APPROVED ? 6 : 4);
+        assertThat(payload.get("compositionVersion").asInt()).isEqualTo(1);
+        if (target == BudgetStatus.APPROVED) assertThat(payload.get("currency").asString()).isEqualTo("BRL");
         assertThat(payload.get("serviceOrderId").asString()).isEqualTo(draft.getServiceOrderId().toString());
         assertThat(payload.get("budgetId").asString()).isEqualTo(draft.getBudgetId().toString());
         assertThat(payload.get("budgetVersion").asInt()).isEqualTo(draft.getBudgetVersion());
@@ -504,7 +521,7 @@ class BudgetPersistenceIT {
         UUID orderId = UUID.randomUUID();
         Budget first = gateway.createDraft(orderId, new BigDecimal("99.99"),
                 new BudgetComposition(List.of(new BudgetComposition.ServiceItem(
-                        UUID.randomUUID(), UUID.randomUUID(), null, "PENDING", List.of()))));
+                        UUID.randomUUID(), UUID.randomUUID(), null, "PENDING", List.of())), 1));
         gateway.sendForApproval(first.getBudgetId(), "customer@example.test");
         Budget before = gateway.findById(first.getBudgetId()).orElseThrow();
         Budget second = createDraft(orderId, new BigDecimal("150"));
@@ -788,7 +805,7 @@ class BudgetPersistenceIT {
             throws Exception {
         var composition = new BudgetComposition(List.of(new BudgetComposition.ServiceItem(
                 UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("50.25"), "PENDING",
-                List.of(new BudgetComposition.Supply(UUID.randomUUID(), 2, new BigDecimal("40.00"), "BRL")))));
+                List.of(new BudgetComposition.Supply(UUID.randomUUID(), 2, new BigDecimal("40.00"), "BRL")))), 1);
         Budget draft = gateway.createDraft(UUID.randomUUID(), new BigDecimal("130.25"), composition);
         if (first != BudgetStatus.SENT) gateway.sendForApproval(draft.getBudgetId(), "customer@example.test");
         Budget before = gateway.findById(draft.getBudgetId()).orElseThrow();
@@ -921,7 +938,7 @@ class BudgetPersistenceIT {
             case APPROVED -> new ApproveBudgetUseCase(gateway)::execute;
             case REJECTED -> new RejectBudgetUseCase(gateway)::execute;
             case SENT -> new SendBudgetForApprovalUseCase(gateway, id ->
-                    new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com"))::execute;
+                    new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com", 1))::execute;
             default -> throw new IllegalArgumentException("Transição não exercitada neste teste: " + targetStatus);
         };
     }
@@ -937,13 +954,13 @@ class BudgetPersistenceIT {
     void shouldPersistSendingWithoutChangingCommercialSnapshotIdentityOrVersion() {
         UUID orderId = UUID.randomUUID();
         var composition = new BudgetComposition(List.of(new BudgetComposition.ServiceItem(
-                UUID.randomUUID(), UUID.randomUUID(), null, null, List.of())));
+                UUID.randomUUID(), UUID.randomUUID(), null, null, List.of())), 1);
         Budget draft = gateway.createDraft(orderId, new BigDecimal("123.45"), composition);
         var persistedCreatedAt = gateway.findById(draft.getBudgetId()).orElseThrow().getCreatedAt();
         String snapshot = jdbcTemplate.queryForObject(
                 "SELECT commercial_snapshot::text FROM budget WHERE budget_id = ?", String.class, draft.getBudgetId());
         var useCase = new SendBudgetForApprovalUseCase(gateway, id ->
-                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com"));
+                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com", 1));
 
         Budget sent = useCase.execute(draft.getBudgetId());
         Budget stored = gateway.findById(draft.getBudgetId()).orElseThrow();
@@ -968,9 +985,9 @@ class BudgetPersistenceIT {
 
     @Test
     void shouldNotPersistSendingWithoutEmail() {
-        Budget draft = gateway.createDraft(UUID.randomUUID(), BigDecimal.TEN, new BudgetComposition(List.of()));
+        Budget draft = gateway.createDraft(UUID.randomUUID(), BigDecimal.TEN, new BudgetComposition(List.of(), 1));
         var useCase = new SendBudgetForApprovalUseCase(gateway, id ->
-                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), null));
+                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), null, 1));
 
         assertThatThrownBy(() -> useCase.execute(draft.getBudgetId())).isInstanceOf(CustomerEmailException.class);
         Budget stored = gateway.findById(draft.getBudgetId()).orElseThrow();
@@ -980,9 +997,9 @@ class BudgetPersistenceIT {
 
     @Test
     void shouldRollbackSendingWhenLocalTransactionFails() {
-        Budget draft = gateway.createDraft(UUID.randomUUID(), BigDecimal.TEN, new BudgetComposition(List.of()));
+        Budget draft = gateway.createDraft(UUID.randomUUID(), BigDecimal.TEN, new BudgetComposition(List.of(), 1));
         var useCase = new SendBudgetForApprovalUseCase(gateway, id ->
-                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com"));
+                new ServiceOrderQuotationContext(id, "IN_DIAGNOSIS", List.of(), "cliente@example.com", 1));
         var transaction = new TransactionTemplate(transactionManager);
 
         assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
@@ -1005,8 +1022,8 @@ class BudgetPersistenceIT {
                 Integer.class
         );
 
-        assertThat(migrationCount).isEqualTo(12);
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("12");
+        assertThat(migrationCount).isEqualTo(13);
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(flyway.info().pending()).isEmpty();
     }
@@ -1413,11 +1430,11 @@ class BudgetPersistenceIT {
     }
 
     private Budget createDraft(UUID serviceOrderId, BigDecimal amount) {
-        return gateway.createDraft(serviceOrderId, amount, new BudgetComposition(List.of()));
+        return gateway.createDraft(serviceOrderId, amount, new BudgetComposition(List.of(), 1));
     }
 
     private Budget draftFixture(UUID serviceOrderId, int version, BigDecimal amount) {
-        return Budget.createDraft(serviceOrderId, version, amount, new BudgetComposition(List.of()));
+        return Budget.createDraft(serviceOrderId, version, amount, new BudgetComposition(List.of(), 1));
     }
 
     @Test
@@ -1507,6 +1524,6 @@ class BudgetPersistenceIT {
     private ServiceOrderQuotationContext quotationContext(UUID orderId, UUID partId) {
         var item = new ServiceOrderQuotationContext.Item(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("150.00"),
                 "PENDING", List.of(new ServiceOrderQuotationContext.Supply(partId, 2)));
-        return new ServiceOrderQuotationContext(orderId, "IN_DIAGNOSIS", List.of(item));
+        return new ServiceOrderQuotationContext(orderId, "IN_DIAGNOSIS", List.of(item), null, 1);
     }
 }

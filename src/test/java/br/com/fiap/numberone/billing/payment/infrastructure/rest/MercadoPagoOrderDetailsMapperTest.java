@@ -14,6 +14,30 @@ class MercadoPagoOrderDetailsMapperTest {
     private final MercadoPagoOrderDetailsMapper mapper = new MercadoPagoOrderDetailsMapper();
 
     @ParameterizedTest
+    @ValueSource(strings = {"", ",\"status_detail\":null"})
+    void shouldAcceptCreatedOrderWithoutStatusDetailAsObservedFromProvider(String detail) {
+        var result = mapper.toSnapshot("ORD01ABC", ("""
+                {"id":"ORD01ABC","type":"online","processing_mode":"manual",
+                 "status":"created","total_amount":"10.00","currency":"BRL",
+                 "external_reference":"873157ce-ac37-44e5-b74c-b7a26b055205"
+                """ + detail + "}").getBytes(StandardCharsets.UTF_8));
+        assertThat(result.status()).isEqualTo("created");
+        assertThat(result.statusDetail()).isNull();
+        assertThat(result.payments()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"processed", "refunded", "processing", "failed"})
+    void shouldStillRejectMissingStatusDetailForOtherStates(String status) {
+        assertThatThrownBy(() -> mapper.toSnapshot("ORD01ABC", ("""
+                {"id":"ORD01ABC","type":"online","processing_mode":"manual",
+                 "status":"%s","total_amount":"10.00","currency":"BRL",
+                 "external_reference":"873157ce-ac37-44e5-b74c-b7a26b055205"}
+                """.formatted(status)).getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", ",\"transactions\":null", ",\"transactions\":{}",
             ",\"transactions\":{\"payments\":null}", ",\"transactions\":{\"payments\":[]}"})
     void shouldKeepMissingPaymentEvidenceEmpty(String transactions) {

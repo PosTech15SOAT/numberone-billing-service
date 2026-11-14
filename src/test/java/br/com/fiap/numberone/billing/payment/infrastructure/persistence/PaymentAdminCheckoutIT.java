@@ -51,12 +51,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {"spring.config.import=", "billing.outbox.enabled=false", "billing.notifications.enabled=false",
         "billing.payment.mercado-pago.enabled=false",
         "billing.integrations.os-base-url=http://os.test", "billing.integrations.inventory-base-url=http://inventory.test",
-        "billing.payment.service-order.local-unauthenticated-enabled=true", "billing.payment.service-order.read-timeout=1s"})
+        "billing.payment.service-order.read-timeout=1s"})
 class PaymentAdminCheckoutIT {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
     private static final AtomicInteger OS_REQUESTS = new AtomicInteger();
     private static final AtomicReference<String> OS_STATUS = new AtomicReference<>("COMPLETED");
+    private static final AtomicReference<String> CANCELLATION = new AtomicReference<>("false");
+    private static final AtomicReference<String> RECEIVED_AUTHORIZATION = new AtomicReference<>();
     private static final AtomicInteger OS_HTTP_STATUS = new AtomicInteger(200);
     private static final AtomicReference<String> RECEIVED_EMPLOYEE = new AtomicReference<>();
     private static final ExecutorService OS_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
@@ -68,7 +70,7 @@ class PaymentAdminCheckoutIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("billing.payment.service-order.base-url", () -> "http://127.0.0.1:" + OS_SERVER.getAddress().getPort());
+        registry.add("billing.integrations.os-base-url", () -> "http://127.0.0.1:" + OS_SERVER.getAddress().getPort());
     }
 
     @Autowired private WebApplicationContext context;
@@ -82,6 +84,8 @@ class PaymentAdminCheckoutIT {
         when(checkout.validateSeller()).thenReturn(validatedCheckout);
         OS_REQUESTS.set(0);
         OS_STATUS.set("COMPLETED");
+        CANCELLATION.set("false");
+        RECEIVED_AUTHORIZATION.set(null);
         OS_HTTP_STATUS.set(200);
         RECEIVED_EMPLOYEE.set(null);
         mvc = MockMvcBuilders.webAppContextSetup(context).build();
@@ -114,6 +118,7 @@ class PaymentAdminCheckoutIT {
                 .andExpect(jsonPath("$.checkout.urlCheckout").value(created.path("urlCheckout").asText()));
         assertThat(OS_REQUESTS).hasValue(1);
         assertThat(RECEIVED_EMPLOYEE.get()).isNull();
+        assertThat(RECEIVED_AUTHORIZATION.get()).isNull();
         verify(validatedCheckout, times(1)).createCheckout(any(), any());
     }
 
@@ -195,6 +200,16 @@ class PaymentAdminCheckoutIT {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"true", "null", "\"invalid\""})
+    void shouldRejectCancellationOrInvalidFlagBeforeReserving(String value) throws Exception {
+        UUID orderId = approvedOrder();
+        CANCELLATION.set(value);
+        mvc.perform(post(path(orderId)).header("Idempotency-Key", UUID.randomUUID()))
+                .andExpect(status().is(value.equals("true") ? 409 : 502));
+        assertNoCharge(orderId);
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {404, 500, 401})
     void shouldRejectOsLookupFailureBeforeReserving(int remoteStatus) throws Exception {
         UUID orderId = approvedOrder();
@@ -249,8 +264,9 @@ class PaymentAdminCheckoutIT {
             server.createContext("/internal/service-orders/", exchange -> {
                 OS_REQUESTS.incrementAndGet();
                 RECEIVED_EMPLOYEE.set(exchange.getRequestHeaders().getFirst("X-Authenticated-Subject"));
+                RECEIVED_AUTHORIZATION.set(exchange.getRequestHeaders().getFirst("Authorization"));
                 String orderId = exchange.getRequestURI().getPath().substring("/internal/service-orders/".length());
-                byte[] response = ("{\"serviceOrderId\":\"" + orderId + "\",\"status\":\"" + OS_STATUS.get() + "\"}").getBytes(StandardCharsets.UTF_8);
+                byte[] response = ("{\"serviceOrderId\":\"" + orderId + "\",\"status\":\"" + OS_STATUS.get() + "\",\"cancellationInProgress\":" + CANCELLATION.get() + "}").getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(OS_HTTP_STATUS.get(), response.length);
                 exchange.getResponseBody().write(response);
