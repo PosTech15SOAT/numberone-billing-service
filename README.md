@@ -1,5 +1,7 @@
 # NumberOne Billing Service
 
+[Arquitetura e entregáveis da Fase 4](docs/architecture/fase-4.md) · [Collection Postman](docs/postman/numberone-billing.postman_collection.json) · [CI e evidência de cobertura](https://github.com/PosTech15SOAT/numberone-billing-service/actions/runs/43628710642)
+
 Serviço de orçamentos e pagamentos do NumberOne. Mantém revisões comerciais, aprovação presencial ou por link temporário, notificações SMTP, cobranças e tentativas de checkout. Publica fatos confirmados por Outbox PostgreSQL/SQS. OS Service continua responsável pela ordem de serviço; Inventory Service fornece preços.
 
 ## Stack e pré-requisitos
@@ -52,7 +54,7 @@ Surefire executa `*Test`; Failsafe executa `*IT` durante verify. ITs requerem Do
 | Página de decisão | GET `/api/public/orcamentos-ordem-servico/decisao` |
 | Webhook | POST `/api/public/pagamentos/notificacoes/mercado-pago` |
 
-Todos os endpoints, DTOs, erros, autenticação, histórico, decisões e reenvio estão nos contratos de [Budget](docs/integrations/budget-http-contracts.md) e [Payment](docs/integrations/payment-http-contracts.md). Não há Swagger/OpenAPI configurado.
+Os contratos de [Budget](docs/integrations/budget-http-contracts.md) e [Payment](docs/integrations/payment-http-contracts.md) descrevem DTOs, erros e regras. A [collection Postman](docs/postman/numberone-billing.postman_collection.json) inclui as rotas internas de quitação, reconciliação e fechamento comercial da Saga.
 
 ## Documentação
 
@@ -87,9 +89,9 @@ Todos os endpoints, DTOs, erros, autenticação, histórico, decisões e reenvio
 
 Autenticação administrativa pertence a API Gateway/Lambda Authorizer; Billing não valida JWT nem protege acesso administrativo direto. Isolamento de rede e procedência do contexto de auditoria precisam ser comprovados na plataforma. Mocks e testes não validam contratos dos serviços reais.
 
-PUBLISHED significa aceite SQS confirmado localmente; SENT da notificação significa aceite SMTP. Ambos podem duplicar em falhas de confirmação. O Billing não consome SQS nem implementa coordenador Saga. PENDING/UNKNOWN com reserva podem permanecer bloqueados sem recuperação automática; 202 não promete conclusão futura. Não há métricas exportadas/tracing/Actuator configurados. Esses limites e as dependências externas estão no [registro de débitos](docs/technical-debt.md).
+PUBLISHED significa aceite SQS confirmado localmente e SENT da notificação significa aceite SMTP. Falhas de confirmação podem produzir reentregas. A OS coordena a Saga. PENDING/UNKNOWN com reserva podem permanecer bloqueados até reconciliação. Os endpoints de saúde do Actuator são usados nas probes. O rastreamento distribuído na plataforma precisa de evidência. Veja o [registro de débitos](docs/technical-debt.md).
 
-No MVP, as APIs administrativas e internas do Billing não possuem autenticação ou autorização HTTP. A autoria presencial usa UUID declarado em `X-Authenticated-Subject`. OS e Inventory são acessados por ClusterIP/DNS interno sem Bearer; acesso direto permite operações e autenticação/autorização futura permanece débito técnico. Consulte os contratos de integração para os limites e validações.
+Na revisão atual, o Billing admite chamadas HTTP administrativas e internas sem Bearer. A autoria presencial usa UUID declarado em `X-Authenticated-Subject`. Os clientes HTTP do Billing também omitem Bearer, mas as revisões publicadas da OS e do Inventory ainda exigem o token. Confirme o contrato comum e as políticas de rede antes de promover a integração. A assinatura do webhook e o token temporário da decisão pública continuam aplicáveis.
 
 ## Preparação integrada de deploy
 

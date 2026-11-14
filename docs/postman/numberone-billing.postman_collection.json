@@ -1,0 +1,449 @@
+{
+  "info": {
+    "name": "NumberOne Billing · Fase 4",
+    "description": "Use somente em ambiente local ou de homologação controlado. Ajuste baseUrl, IDs dos cadastros existentes e as credenciais no ambiente privado do Postman. Headers X-Authenticated-* reproduzem apenas o contexto local; na entrada externa use o contrato publicado pela plataforma. Use um UUID novo para cada nova operação e preserve a chave na repetição da mesma operação.\n\nEsta revisão do Billing não exige Bearer em suas rotas; o webhook assinado e o token da decisão pública continuam exigidos. Use o request de webhook somente com dados e assinatura de ambiente de teste.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "approvalToken",
+      "value": ""
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8080"
+    },
+    {
+      "key": "budgetId",
+      "value": ""
+    },
+    {
+      "key": "cancelBudgetOpId",
+      "value": "00000000-0000-4000-8000-000000000006"
+    },
+    {
+      "key": "checkoutKey",
+      "value": "00000000-0000-4000-8000-000000000005"
+    },
+    {
+      "key": "closeBudgetOpId",
+      "value": "00000000-0000-4000-8000-000000000007"
+    },
+    {
+      "key": "correlationId",
+      "value": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "key": "mpRequestId",
+      "value": ""
+    },
+    {
+      "key": "mpSignature",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "providerOrderId",
+      "value": ""
+    },
+    {
+      "key": "subject",
+      "value": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "item": [
+    {
+      "name": "Saúde da aplicação",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/actuator/health"
+      }
+    },
+    {
+      "name": "Orçamento",
+      "item": [
+        {
+          "name": "Criar orçamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/orcamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar orçamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}"
+          }
+        },
+        {
+          "name": "Solicitar aprovação",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/solicitar-aprovacao"
+          }
+        },
+        {
+          "name": "Reenviar aprovação",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/reenviar-aprovacao"
+          }
+        },
+        {
+          "name": "Aprovar orçamento enviado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/aprovar"
+          }
+        },
+        {
+          "name": "Rejeitar orçamento enviado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/rejeitar"
+          }
+        },
+        {
+          "name": "Registrar aprovação presencial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Authenticated-Subject",
+                "value": "{{subject}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/registrar-aprovacao"
+          }
+        },
+        {
+          "name": "Consultar revisão pública",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orcamentos-ordem-servico/decisao?token={{approvalToken}}"
+          }
+        },
+        {
+          "name": "Aprovação pública",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orcamentos-ordem-servico/aprovar",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "token",
+                  "value": "{{approvalToken}}",
+                  "type": "text"
+                },
+                {
+                  "key": "confirmacao",
+                  "value": "sim",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rejeição pública",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orcamentos-ordem-servico/rejeitar",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "token",
+                  "value": "{{approvalToken}}",
+                  "type": "text"
+                },
+                {
+                  "key": "confirmacao",
+                  "value": "sim",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pagamento",
+      "item": [
+        {
+          "name": "Criar ou repetir checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/pagamentos/checkout"
+          }
+        },
+        {
+          "name": "Consultar checkout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/pagamentos/checkout"
+          }
+        },
+        {
+          "name": "Webhook Order · Replay assinado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-request-id",
+                "value": "{{mpRequestId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{mpSignature}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/pagamentos/notificacoes/mercado-pago?data.id={{providerOrderId}}&type=order",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"order\",\n  \"live_mode\": false,\n  \"action\": \"order.processed\",\n  \"data\": {\n    \"id\": \"{{providerOrderId}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST interno",
+      "item": [
+        {
+          "name": "Histórico comercial",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/ordens-servico/{{orderId}}/orcamentos"
+          }
+        },
+        {
+          "name": "CT-07 · Consultar quitação",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/payments/service-orders/{{orderId}}/settlement"
+          }
+        },
+        {
+          "name": "CT-10 · Consultar revisão vigente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/budgets/service-orders/{{orderId}}/current"
+          }
+        },
+        {
+          "name": "CT-09 · Cancelar revisão conhecida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{cancelBudgetOpId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/budgets/{{budgetId}}/cancellation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationId\": \"{{cancelBudgetOpId}}\",\n  \"budgetVersion\": 1,\n  \"reason\": \"SERVICE_ORDER_CANCELLED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "CT-11 · Fechar contexto comercial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{closeBudgetOpId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/budgets/service-orders/{{orderId}}/cancellation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationId\": \"{{closeBudgetOpId}}\",\n  \"reason\": \"SERVICE_ORDER_CANCELLED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

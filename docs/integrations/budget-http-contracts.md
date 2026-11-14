@@ -18,7 +18,7 @@ Contratos efetivos de `BudgetAdminController`, `BudgetPublicController` e `Budge
 | POST | `/api/public/orcamentos-ordem-servico/aprovar` | Formulário `token` e `confirmacao=sim` | 200, HTML de confirmação |
 | POST | `/api/public/orcamentos-ordem-servico/rejeitar` | Mesmo formulário | 200, HTML de confirmação |
 
-Nos comandos sem DTO, o controller não lê um corpo; isso não implementa a recusa explícita de bytes usada em Payment. Não há endpoints de edição/cancelamento ou OpenAPI/Swagger configurado no POM atual.
+Nos comandos sem DTO, o controller não lê um corpo. As rotas internas CT-09 e CT-11 encerram a revisão ou o contexto comercial da OS. Veja o mapa no [guia de arquitetura](../architecture/fase-4.md) e os requests na [collection Postman](../postman/numberone-billing.postman_collection.json).
 
 No MVP, Billing não autentica nem autoriza requisições HTTP. `X-Authenticated-Subject` é um UUID declarado usado somente como autoria na auditoria presencial; ausência ou formato inválido retorna 503. O header não comprova identidade. Rotas públicas de decisão continuam usando token temporário. O acesso direto permite operações administrativas e internas; autenticação e autorização futuras são débito técnico. ClusterIP/DNS interno não substitui controle de acesso.
 
