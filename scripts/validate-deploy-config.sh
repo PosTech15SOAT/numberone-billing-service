@@ -33,5 +33,12 @@ except ValueError:
 if len(key) != 32:
     raise SystemExit("Chave comercial exige 32 bytes após decodificação base64.")
 if boolean("OUTBOX_ENABLED"):
-    queue_url("SQS_QUEUE_URL")
+    bridge = os.environ.get("SQS_BRIDGE_URL")
+    if bridge:
+        url = urlsplit(bridge)
+        if (url.scheme != "https" or not url.hostname or url.username is not None
+                or url.path not in ("", "/") or url.query or url.fragment):
+            raise SystemExit("SQS_BRIDGE_URL exige a URL base HTTPS da ponte.")
+    else:
+        queue_url("SQS_QUEUE_URL")
 PYTHON

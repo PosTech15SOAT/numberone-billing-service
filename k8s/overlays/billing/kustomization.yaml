@@ -26,6 +26,10 @@ patches:
           spec:
             containers:
               - name: billing
+                volumeMounts:
+                  - name: billing-sqs-identity
+                    mountPath: /var/run/secrets/numberone-sqs
+                    readOnly: true
                 envFrom:
                   - configMapRef: {name: numberone-billing-config}
                   - configMapRef: {name: numberone-billing-runtime-config}
@@ -42,3 +46,11 @@ patches:
                   - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
                     valueFrom:
                       secretKeyRef: {name: numberone-billing-secret, key: BUDGET_NOTIFICATION_ENCRYPTION_KEY}
+            volumes:
+              - name: billing-sqs-identity
+                projected:
+                  sources:
+                    - serviceAccountToken:
+                        path: token
+                        audience: numberone-billing-sqs-bridge
+                        expirationSeconds: 900
