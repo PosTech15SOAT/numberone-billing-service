@@ -38,6 +38,7 @@ jobs:
       OUTBOX_ENABLED: ${{ vars.OUTBOX_ENABLED || 'false' }}
       SQS_QUEUE_URL: ${{ vars.SQS_QUEUE_URL }}
       SQS_BRIDGE_URL: ${{ vars.SQS_BRIDGE_URL }}
+      BUDGET_APPROVAL_BASE_URL: ${{ vars.BUDGET_APPROVAL_BASE_URL }}
       BUDGET_NOTIFICATION_ENCRYPTION_KEY: ${{ secrets.BUDGET_NOTIFICATION_ENCRYPTION_KEY }}
 
     steps:
@@ -59,7 +60,7 @@ jobs:
             echo "::error::O deploy exige a branch main."
             exit 1
           fi
-          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER BUDGET_APPROVAL_BASE_URL BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::$name não foi configurado no repositório ou organização."
               exit 1
