@@ -1,5 +1,7 @@
 # Execução posterior pelo operador
 
+> Para o Billing, o fluxo atual está em [CI/CD](../../../k8s/CI-CD.md): push/merge em `main` dispara **Deploy Billing**, sem GitHub Environment; execução manual permanece disponível na `main`. As referências abaixo a deploy exclusivamente manual, nomes `numberone-lab-*` e Environment são do diagnóstico anterior. Conta/região confirmadas nesta revisão: `891377201345` / `us-east-1`, EKS `numberone-eks`, RDS `numberone-postgres`. Nenhum deploy foi executado nesta revisão.
+
 Este roteiro **não foi executado contra AWS**. Não use manifests `dev/kind` ou
 `k8s/overlays/kind` na AWS. As pipelines implantam somente os overlays AWS de cada
 repositório. Não é necessária nenhuma confirmação financeira para o deploy técnico;
@@ -81,7 +83,7 @@ No GitHub do Inventory, execute **Deploy manual Inventory**, arquivo
 `.github/workflows/deploy.yml`, branch **main**, sem inputs adicionais.
 Vars específicas: `K8S_NAMESPACE` (exemplo usado no CI: `numberone-inventory`) e
 `DB_APP_USERNAME`, além das comuns. ECR obrigatório `numberone-inventory`; DB fixo
-`inventory_db`; DB_SECRET_ARN aponta ao secret exclusivo real.
+`inventory_db`; o Terraform resolve o ARN de `numberone-inventory-database`.
 
 Depois, no terminal preparado:
 

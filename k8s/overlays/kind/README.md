@@ -97,5 +97,5 @@ são aceitos. Token, ID esperado e HMAC usam Secret dedicado; credenciais SMTP
 usam outro Secret. Flags comerciais ficam no ConfigMap e o worker SMTP termina
 desabilitado. SMTP foi exercitado somente no destinatário autorizado.
 
-A URL AWS é fornecida por `vars.BUDGET_APPROVAL_BASE_URL` no workflow e injetada
+A URL AWS é definida no ConfigMap do overlay Billing e injetada
 por ConfigMapKeyRef; domínio HTTPS real deve ser configurado na infraestrutura.

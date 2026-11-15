@@ -1,3 +1,5 @@
+> Fase 4: **Deploy Billing** executa automaticamente em push/merge na `main`, com execução manual também restrita à `main`, sem GitHub Environment. Consulte o [fluxo atual e configurações](CI-CD.md). O restante deste documento registra a Fase 3 e não descreve a configuração atual; referências a deploy exclusivamente manual, Environments e recursos pendentes são históricas.
+
 # Billing no EKS — fluxo da Fase 3
 
 A infraestrutura permanece nos repositórios Cloud e Database. O [workflow Billing](../.github/workflows/deploy.yml) publica a imagem e gerencia Namespace, ConfigMaps, Secret e aplicação, como o deploy do monólito. Não há bootstrap de infraestrutura neste repositório. A existência de Terraform não comprova recursos provisionados; nenhuma consulta AWS ou implantação foi executada nesta revisão.
@@ -45,14 +47,13 @@ O workflow continua **manual**, selecionando `main`, com Environment `homologati
 | Variable | `ECR_REPOSITORY` | `numberone-billing` |
 | Variable | `EKS_CLUSTER_NAME` | Cluster compartilhado existente |
 | Variable | `DB_IDENTIFIER` | Identificador real do RDS compartilhado, como no legado, sem fallback inventado |
-| Variable | `DB_SECRET_ARN` | ARN do secret **exclusivo de aplicação Billing**, disponibilizado pelo processo Database; conteúdo JSON `username` e `password` |
 | Variable | `OS_SERVICE_BASE_URL` | URL HTTP/HTTPS real do OS, sem credenciais |
 | Variable | `INVENTORY_SERVICE_BASE_URL` | URL HTTP/HTTPS real do Inventory, sem credenciais |
 | Secret | `AWS_ACCESS_KEY_ID` | Credencial temporária Academy |
 | Secret | `AWS_SECRET_ACCESS_KEY` | Credencial temporária da mesma sessão |
 | Secret | `AWS_SESSION_TOKEN` | Token da mesma sessão |
 
-Não configurar senha do banco no GitHub. O ARN não contém a senha. A leitura de Secrets Manager replica o mecanismo do legado, mas o Billing **recusa o ARN master do RDS e seu usuário master**. Não adicionar credenciais AWS ao pod nem instalar operador de secrets. Não copiar SMTP, dados financeiros ou configuração comercial do monólito.
+Não configurar senha do banco no GitHub. O Terraform consulta os metadados de `numberone-billing-database` para obter o ARN automaticamente. A leitura de Secrets Manager replica o mecanismo do legado, mas o Billing **recusa o ARN master do RDS e seu usuário master**. Não adicionar credenciais AWS ao pod nem instalar operador de secrets. Não copiar SMTP, dados financeiros ou configuração comercial do monólito.
 
 ## Ordem do deploy da aplicação
 
@@ -130,3 +131,5 @@ Configurar o domínio real e o roteamento público antes de habilitar SMTP.
 Preparação transversal AWS atual: [roteiro integrado](../docs/deployment/eks-readiness/README.md).
 O Kind compartilhado está em `numberone-billing-service/dev/kind`; os overlays deste
 repositório continuam sendo reutilizados, com os ajustes de composição feitos na raiz integrada.
+
+Fluxo de branches, CI e deploy manual: [CI/CD](CI-CD.md).

@@ -30,6 +30,15 @@ patches:
                   - configMapRef: {name: numberone-billing-config}
                   - configMapRef: {name: numberone-billing-runtime-config}
                 env:
+                  - name: OS_SERVICE_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: OS_SERVICE_BASE_URL}
+                  - name: INVENTORY_SERVICE_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: INVENTORY_SERVICE_BASE_URL}
+                  - name: BUDGET_APPROVAL_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: BUDGET_APPROVAL_BASE_URL}
                   - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
                     valueFrom:
                       secretKeyRef: {name: numberone-billing-secret, key: BUDGET_NOTIFICATION_ENCRYPTION_KEY}

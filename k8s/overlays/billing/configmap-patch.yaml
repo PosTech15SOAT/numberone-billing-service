@@ -3,7 +3,9 @@ kind: ConfigMap
 metadata:
   name: numberone-billing-config
 data:
-  SPRING_PROFILES_ACTIVE: homologation
+  OS_SERVICE_BASE_URL: http://numberone-os-service.numberone-os.svc.cluster.local:8080
+  INVENTORY_SERVICE_BASE_URL: http://numberone-inventory-service.numberone-inventory.svc.cluster.local:8080
+  BUDGET_APPROVAL_BASE_URL: https://billing.example.invalid/api/public/orcamentos-ordem-servico/decisao
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65
   MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE: readinessState,db
   AWS_EC2_METADATA_DISABLED: "true"
