@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: numberone-billing
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: numberone-billing-service
+      app.kubernetes.io/part-of: numberone
+    includeSelectors: false
+    includeTemplates: true
+
+patches:
+  - path: configmap-patch.yaml
+  - target: {kind: Deployment, name: numberone-billing}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: numberone-billing}
+      spec:
+        template:
+          spec:
+            containers:
+              - name: billing
+                envFrom:
+                  - configMapRef: {name: numberone-billing-config}
+                  - configMapRef: {name: numberone-billing-runtime-config}
+                env:
+                  - name: OS_SERVICE_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: OS_SERVICE_BASE_URL}
+                  - name: INVENTORY_SERVICE_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: INVENTORY_SERVICE_BASE_URL}
+                  - name: BUDGET_APPROVAL_BASE_URL
+                    valueFrom:
+                      configMapKeyRef: {name: numberone-billing-config, key: BUDGET_APPROVAL_BASE_URL}
+                  - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: BUDGET_NOTIFICATION_ENCRYPTION_KEY}

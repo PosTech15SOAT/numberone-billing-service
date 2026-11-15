@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - billing_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:4.14.0
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_ENDPOINT_STRATEGY: path
+      LOCALSTACK_HOST: localhost:${LOCALSTACK_PORT:-4566}
+    ports:
+      - "${LOCALSTACK_PORT:-4566}:4566"
+    volumes:
+      - ./docker/localstack/10-billing-sqs.sh:/etc/localstack/init/ready.d/10-billing-sqs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/billing-sqs-ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mockoon-os:
+    image: mockoon/cli:9.9.0
+    environment:
+      MOCKOON_CUSTOMER_EMAIL: ${MOCK_CUSTOMER_EMAIL}
+    command: ["--data", "/mockoon/os-service.json", "--port", "3000", "--hostname", "0.0.0.0", "--disable-admin-api"]
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./docker/mockoon/os-service.json:/mockoon/os-service.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/internal/service-orders/00000000-0000-4000-8000-000000000101/quotation-context', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  mockoon-inventory:
+    image: mockoon/cli:9.9.0
+    command: ["--data", "/mockoon/inventory-service.json", "--port", "3000", "--hostname", "0.0.0.0", "--disable-admin-api"]
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./docker/mockoon/inventory-service.json:/mockoon/inventory-service.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "const r=require('http').request({hostname:'127.0.0.1',port:3000,path:'/internal/inventory/consultar-precos',method:'POST',headers:{'content-type':'application/json'}},res=>process.exit(res.statusCode===200?0:1));r.on('error',()=>process.exit(1));r.end('{\"inventoryItemIds\":[\"00000000-0000-4000-8000-000000000201\"]}');"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  billing_postgres_data:

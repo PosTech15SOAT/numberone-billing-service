@@ -1,0 +1,26 @@
+# Reproduz infraestrutura/integrações; habilitações financeiras homologadas não são copiadas.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: numberone-billing}
+spec:
+  template:
+    spec:
+      containers:
+        - name: billing
+          env:
+            - {name: MERCADO_PAGO_ENABLED, value: "false"}
+            - {name: MERCADO_PAGO_WEBHOOK_ENABLED, value: "false"}
+            - {name: MERCADO_PAGO_KIND_TEST_ENABLED, value: "false"}
+            - {name: BUDGET_NOTIFICATIONS_ENABLED, value: "false"}
+            - {name: SMTP_HOST, value: ""}
+            - {name: SMTP_FROM, value: ""}
+            - name: SMTP_USERNAME
+              $patch: delete
+            - name: SMTP_PASSWORD
+              $patch: delete
+            - name: MERCADO_PAGO_TEST_ACCESS_TOKEN
+              $patch: delete
+            - name: MERCADO_PAGO_EXPECTED_TEST_SELLER_ID
+              $patch: delete
+            - name: MERCADO_PAGO_WEBHOOK_SECRET
+              $patch: delete

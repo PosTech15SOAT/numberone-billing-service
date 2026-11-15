@@ -1,0 +1,32 @@
+{
+  "id": "ORDTSTfixtureInstallments",
+  "type": "online",
+  "processing_mode": "manual",
+  "external_reference": "10000000-0000-4000-8000-000000000001",
+  "total_amount": "10.00",
+  "total_paid_amount": "10.96",
+  "country_code": "BRA",
+  "user_id": "1234567890123",
+  "status": "processed",
+  "status_detail": "accredited",
+  "capture_mode": "automatic_async",
+  "currency": "BRL",
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAYfixtureInstallments",
+        "amount": "10",
+        "paid_amount": "10.96",
+        "taxes_amount": "0",
+        "status": "processed",
+        "status_detail": "accredited",
+        "payment_method": {
+          "id": "master",
+          "type": "credit_card",
+          "installments": 2,
+          "installment_amount": "5.48"
+        }
+      }
+    ]
+  }
+}

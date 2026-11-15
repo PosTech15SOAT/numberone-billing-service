@@ -1,0 +1,57 @@
+name: Abertura de Pull Request
+
+on:
+  push:
+    branches:
+      - feature/**
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: abrir-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  open-pull-request:
+    name: Abrir Pull Request de promoção
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar e abrir Pull Request quando necessário
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$SOURCE_BRANCH" == develop ]]; then
+            base=main
+          else
+            base=develop
+          fi
+          existing_pr=$(gh pr list --base "$base" --head "$SOURCE_BRANCH" --state open \
+            --json number,headRepository --jq 'map(select(.headRepository.nameWithOwner == env.GH_REPO)) | .[0].number // empty')
+          if [[ -n "$existing_pr" ]]; then
+            echo "Pull Request existente: #$existing_pr."
+            exit 0
+          fi
+          comparison=$(gh api "repos/$GH_REPO/compare/$base...$SOURCE_BRANCH" --jq '.ahead_by')
+          if [[ "$comparison" == "0" ]]; then
+            echo "Nenhum commit para promover a $base."
+            exit 0
+          fi
+          body_file=$(mktemp)
+          trap 'rm -f "$body_file"' EXIT
+          cat > "$body_file" <<'EOF'
+          Pull Request criado automaticamente. Revise as alterações e aguarde o CI antes do merge manual.
+          Se solicitado pelo GitHub, uma pessoa com permissão de escrita deve aprovar a execução dos workflows.
+          EOF
+          if ! gh pr create --base "$base" --head "$SOURCE_BRANCH" \
+            --title "Integração: $SOURCE_BRANCH → $base" --body-file "$body_file"; then
+            echo "::error::Não foi possível criar o Pull Request. Verifique pull-requests: write e Allow GitHub Actions to create and approve pull requests nas configurações da organização e do repositório."
+            exit 1
+          fi

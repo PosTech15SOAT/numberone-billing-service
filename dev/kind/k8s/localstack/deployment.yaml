@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: localstack
+  template:
+    metadata:
+      labels:
+        app: localstack
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: localstack
+          image: localstack/localstack:4.14.0
+          ports:
+            - name: edge
+              containerPort: 4566
+          env:
+            - {name: SERVICES, value: sqs}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}
+            # Identificadores exclusivos do emulador, sem permissões AWS.
+            - {name: AWS_ACCESS_KEY_ID, value: test}
+            - {name: AWS_SECRET_ACCESS_KEY, value: test}
+            - {name: AWS_EC2_METADATA_DISABLED, value: 'true'}
+            - {name: SQS_ENDPOINT_STRATEGY, value: path}
+            - {name: LOCALSTACK_HOST, value: 'localstack:4566'}
+            - {name: PERSISTENCE, value: '0'}
+            - {name: DISABLE_EVENTS, value: '1'}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: '1', memory: 768Mi}
+          startupProbe:
+            exec:
+              command: [sh, -ec, 'test -f /tmp/billing-sqs-ready']
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - >-
+                  test -f /tmp/billing-sqs-ready &&
+                  awslocal --endpoint-url=http://localhost:4566 --region us-east-1
+                  sqs get-queue-url --queue-name numberone-billing-events >/dev/null
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /_localstack/health, port: edge}
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: init
+              mountPath: /etc/localstack/init/ready.d
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/localstack
+      volumes:
+        - name: init
+          configMap:
+            name: localstack-init
+            defaultMode: 0555
+        - name: data
+          emptyDir: {sizeLimit: 256Mi}

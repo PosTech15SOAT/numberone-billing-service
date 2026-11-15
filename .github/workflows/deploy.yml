@@ -1,0 +1,262 @@
+name: Deploy Billing
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: billing-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validar o commit antes de publicar
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+    with:
+      upload_jar: true
+
+  deploy:
+    name: Publicar e implantar no EKS
+    if: github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOYMENT_REVISION: ${{ github.run_id }}-${{ github.run_attempt }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: numberone-billing
+      EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+      K8S_NAMESPACE: numberone-billing
+      DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
+      OUTBOX_ENABLED: ${{ vars.OUTBOX_ENABLED || 'false' }}
+      SQS_QUEUE_URL: ${{ vars.SQS_QUEUE_URL }}
+      BUDGET_NOTIFICATION_ENCRYPTION_KEY: ${{ secrets.BUDGET_NOTIFICATION_ENCRYPTION_KEY }}
+
+    steps:
+      - name: Obter o mesmo commit validado
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Exigir configuração explícita antes de acessar AWS
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "KUBECONFIG=$RUNNER_TEMP/billing-kubeconfig" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "::error::O deploy exige a branch main."
+            exit 1
+          fi
+          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name não foi configurado no repositório ou organização."
+              exit 1
+            fi
+          done
+          if [[ ! "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ || "$ECR_REPOSITORY" != numberone-billing ]]; then
+            echo "::error::Informe uma conta válida e o ECR exclusivo numberone-billing."
+            exit 1
+          fi
+          bash scripts/validate-deploy-config.sh
+
+      - name: Obter JAR validado desta execução
+        uses: actions/download-artifact@v8
+        with:
+          name: billing-application-${{ github.sha }}
+          path: target
+
+      - name: Configurar sessão AWS Academy
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.7
+          terraform_wrapper: false
+
+      - name: Descobrir ARN do Secret de banco
+        shell: bash
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-secret-discovery
+          TF_IN_AUTOMATION: true
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/secret-discovery init -input=false -lockfile=readonly -no-color
+          secret_arn="$(echo 'data.aws_secretsmanager_secret.database.arn' | terraform -chdir=terraform/secret-discovery console -plan -no-color | jq -er '.')"
+          if [[ "$secret_arn" != "arn:aws:secretsmanager:$AWS_REGION:$AWS_ACCOUNT_ID:secret:numberone-billing-database-"* ]]; then
+            echo "::error::O ARN do Secret não corresponde à conta e região configuradas."
+            exit 1
+          fi
+          echo "DB_SECRET_ARN=$secret_arn" >> "$GITHUB_ENV"
+
+      - name: Consultar versão do cluster configurado
+        id: eks
+        run: |
+          set -euo pipefail
+          version="$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --query cluster.version --output text)"
+          [[ "$version" =~ ^1\.[0-9]+$ ]]
+          echo "kubectl=v$version.0" >> "$GITHUB_OUTPUT"
+
+      - name: Configurar kubectl compatível com o cluster declarado
+        uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ steps.eks.outputs.kubectl }}
+
+      - name: Verificar ECR e configurar acesso EKS
+        id: cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository_uri="$(aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" \
+            --query 'repositories[0].repositoryUri' --output text)"
+          if [[ "$repository_uri" != "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY" ]]; then
+            echo "::error::O repositório ECR não corresponde à conta e região configuradas."
+            exit 1
+          fi
+          echo "ECR_URI=$repository_uri" >> "$GITHUB_ENV"
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+          kubectl cluster-info
+
+      - name: Criar namespace e sincronizar configuração runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          runtime_directory="$(mktemp -d)"
+          trap 'rm -rf "$runtime_directory"' EXIT
+
+          aws rds describe-db-instances --db-instance-identifier "$DB_IDENTIFIER" \
+            --region "$AWS_REGION" --output json > "$runtime_directory/rds.json"
+          # O secret master usado pelo monólito nunca pode ser a credencial Billing.
+          jq -e --arg secret "$DB_SECRET_ARN" '
+            .DBInstances[0] | .DBInstanceStatus == "available"
+            and (.Endpoint.Address | type == "string" and length > 0)
+            and (.Endpoint.Port | type == "number")
+            and .MasterUserSecret.SecretArn != $secret
+          ' "$runtime_directory/rds.json" >/dev/null
+          aws secretsmanager get-secret-value --secret-id "$DB_SECRET_ARN" \
+            --region "$AWS_REGION" --query SecretString --output text > "$runtime_directory/database.json"
+          jq -e --slurpfile rds "$runtime_directory/rds.json" '
+            (.username | type == "string" and test("^[a-z_][a-z0-9_]*$"))
+            and (.password | type == "string" and length > 0)
+            and .username != $rds[0].DBInstances[0].MasterUsername
+          ' "$runtime_directory/database.json" >/dev/null
+
+          db_host="$(jq -r '.DBInstances[0].Endpoint.Address' "$runtime_directory/rds.json")"
+          db_port="$(jq -r '.DBInstances[0].Endpoint.Port' "$runtime_directory/rds.json")"
+          jq -n --arg namespace "$K8S_NAMESPACE" \
+            --arg url "jdbc:postgresql://$db_host:$db_port/numberone_billing?sslmode=require" \
+            --arg region "$AWS_REGION" --arg outbox "$OUTBOX_ENABLED" --arg queue "$SQS_QUEUE_URL" \
+            '{
+              apiVersion: "v1", kind: "ConfigMap",
+              metadata: {name: "numberone-billing-runtime-config", namespace: $namespace},
+              data: {DB_URL: $url, AWS_REGION: $region, OUTBOX_ENABLED: $outbox, SQS_QUEUE_URL: $queue, SQS_ENDPOINT: ""}
+            }' > "$runtime_directory/configmap.json"
+          jq --arg namespace "$K8S_NAMESPACE" '{
+              apiVersion: "v1", kind: "Secret", type: "Opaque",
+              metadata: {name: "numberone-billing-secret", namespace: $namespace},
+              stringData: {DB_USERNAME: .username, DB_PASSWORD: .password, BUDGET_NOTIFICATION_ENCRYPTION_KEY: $ENV.BUDGET_NOTIFICATION_ENCRYPTION_KEY}
+            }' "$runtime_directory/database.json" > "$runtime_directory/secret.json"
+
+          kubectl apply -f k8s/overlays/billing/namespace.yaml
+          kubectl apply -f "$runtime_directory/configmap.json"
+          # Credenciais somente em arquivo 0600; não imprimir erros com o objeto Secret.
+          if ! kubectl apply -f "$runtime_directory/secret.json" >/dev/null 2>&1; then
+            echo "::error::Falha ao sincronizar o Secret exclusivo do Billing."
+            exit 1
+          fi
+
+      - name: Autenticar no ECR
+        uses: aws-actions/amazon-ecr-login@v2.1.6
+
+      - name: Construir e publicar imagem do JAR validado
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Tag única permite reexecução mesmo em ECR com tags imutáveis.
+          image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build --tag "$ECR_URI:$image_tag" .
+          docker push "$ECR_URI:$image_tag"
+          digest="$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$image_tag" --query 'imageDetails[0].imageDigest' --output text)"
+          if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::O ECR não retornou um digest válido."
+            exit 1
+          fi
+          echo "uri=$ECR_URI@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Renderizar e implantar somente os recursos Billing
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/render-kubernetes.sh > "$RUNNER_TEMP/billing-manifests.yaml"
+          kubectl apply --dry-run=server -f "$RUNNER_TEMP/billing-manifests.yaml"
+          kubectl apply -f "$RUNNER_TEMP/billing-manifests.yaml"
+          kubectl rollout status deployment/numberone-billing -n "$K8S_NAMESPACE" --timeout=10m
+          deployed="$(kubectl -n "$K8S_NAMESPACE" get deployment numberone-billing \
+            -o jsonpath='{.spec.template.spec.containers[?(@.name=="billing")].image}')"
+          [[ "$deployed" == "$IMAGE_URI" ]]
+
+      - name: Verificar health por HTTP sem exposição pública
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl port-forward --address 127.0.0.1 -n "$K8S_NAMESPACE" \
+            service/numberone-billing-service 18080:8080 > "$RUNNER_TEMP/billing-port-forward.log" 2>&1 &
+          forward_pid=$!
+          trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            healthy=true
+            for path in health/liveness health/readiness health; do
+              if ! curl --fail --silent --show-error --connect-timeout 1 --max-time 5 \
+                "http://127.0.0.1:18080/actuator/$path" | jq -e '.status == "UP"' >/dev/null; then
+                healthy=false
+                break
+              fi
+            done
+            if [[ "$healthy" == true ]]; then
+              echo "Health agregado, readiness e liveness disponíveis."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Smoke HTTP de health não foi concluído."
+          exit 1
+
+      - name: Registrar resultado
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        shell: bash
+        run: |
+          {
+            echo "### Billing em homologação"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Imagem: $IMAGE_URI"
+            echo "- Namespace: $K8S_NAMESPACE"
+            echo "- Service ClusterIP; integrações financeiras desabilitadas; Outbox conforme configuração explícita."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coletar estado do rollout sem imprimir configurações ou logs da aplicação
+        if: failure() && steps.cluster.outcome == 'success'
+        run: kubectl get deployment,pods,service -n "$K8S_NAMESPACE" -l app.kubernetes.io/name=numberone-billing-service

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack-dynamodb
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: localstack-dynamodb}
+  template:
+    metadata:
+      labels: {app: localstack-dynamodb}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: localstack-dynamodb
+          image: localstack/localstack:4.14.0
+          env:
+            - {name: SERVICES, value: dynamodb}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}
+            - {name: AWS_ACCESS_KEY_ID, value: test}
+            - {name: AWS_SECRET_ACCESS_KEY, value: test}
+            - {name: AWS_EC2_METADATA_DISABLED, value: 'true'}
+            - {name: DISABLE_EVENTS, value: '1'}
+          ports: [{name: edge, containerPort: 4566}]
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: '1', memory: 768Mi}
+          startupProbe:
+            httpGet: {path: /_localstack/health, port: edge}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: [sh, -ec, 'awslocal --endpoint-url=http://localhost:4566 --region us-east-1 dynamodb describe-table --table-name vehicle_maintenance_history >/dev/null']
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /_localstack/health, port: edge}
+            periodSeconds: 20
+          volumeMounts:
+            - {name: init, mountPath: /etc/localstack/init/ready.d, readOnly: true}
+            - {name: data, mountPath: /var/lib/localstack}
+      volumes:
+        - name: init
+          configMap: {name: localstack-history-init, defaultMode: 0555}
+        - name: data
+          emptyDir: {sizeLimit: 512Mi}

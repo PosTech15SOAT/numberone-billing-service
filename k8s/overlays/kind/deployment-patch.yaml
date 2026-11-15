@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numberone-billing
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    spec:
+      containers:
+      - name: billing
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: numberone-billing-config
+        - configMapRef:
+            name: numberone-billing-runtime-config
+        env:
+        - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-commercial
+              key: BUDGET_NOTIFICATION_ENCRYPTION_KEY
+        - name: DB_USERNAME
+          valueFrom:
+            $patch: replace
+            configMapKeyRef:
+              name: numberone-billing-runtime-config
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: BILLING_PASSWORD
+        - name: SMTP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-smtp
+              key: SMTP_USERNAME
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-smtp
+              key: SMTP_PASSWORD
+        - name: MERCADO_PAGO_TEST_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-mercado-pago-test
+              key: MERCADO_PAGO_TEST_ACCESS_TOKEN
+        - name: MERCADO_PAGO_EXPECTED_TEST_SELLER_ID
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-mercado-pago-test
+              key: MERCADO_PAGO_EXPECTED_TEST_SELLER_ID
+        - name: MERCADO_PAGO_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: numberone-billing-mercado-pago-test
+              key: MERCADO_PAGO_WEBHOOK_SECRET
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi

@@ -1,0 +1,200 @@
+{
+  "uuid": "8bce1fd4-9e20-4330-a04c-bc147a61b6dc",
+  "lastMigration": 33,
+  "name": "NumberOne Inventory Service (CT-04 provisório)",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3002,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "6bad6cec-cec1-40df-8af9-714e2b1c575f",
+      "type": "http",
+      "documentation": "CT-04 provisório: POST aprovado para desenvolvimento; rota e contrato final pendentes de alinhamento com Inventory.",
+      "method": "post",
+      "endpoint": "internal/inventory/consultar-precos",
+      "responses": [
+        {
+          "uuid": "fa93a858-7fb7-41b9-a4cd-bec88eed65b8",
+          "body": "",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "Serviço indisponível",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "inventoryItemIds",
+              "value": "00000000-0000-4000-8000-000000000212",
+              "invert": false,
+              "operator": "array_includes"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "d79b2f50-f2d4-4b5c-970c-26b077968d44",
+          "body": "{\n  \"items\": []\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Preço ausente: resposta parcial sem o ID solicitado",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "inventoryItemIds",
+              "value": "00000000-0000-4000-8000-000000000211",
+              "invert": false,
+              "operator": "array_includes"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "1731779a-ff03-4459-8f3b-2f1f437b296f",
+          "body": "{\n  \"items\": null\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Resposta inválida: items nulo",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "inventoryItemIds",
+              "value": "00000000-0000-4000-8000-000000000213",
+              "invert": false,
+              "operator": "array_includes"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "3d51f100-1dc0-482c-a3b2-16c00435e708",
+          "body": "{\n  \"items\": [\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n      \"salePrice\": \"25.50\",\n      \"currency\": \"BRL\"\n    },\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n      \"salePrice\": \"14.75\",\n      \"currency\": \"BRL\"\n    },\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n      \"salePrice\": \"999.99\",\n      \"currency\": \"BRL\"\n    }\n  ]\n}",
+          "latency": 6500,
+          "statusCode": 200,
+          "label": "Timeout Inventory (acima do read timeout local de 5s)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "inventoryItemIds",
+              "value": "00000000-0000-4000-8000-000000000214",
+              "invert": false,
+              "operator": "array_includes"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        },
+        {
+          "uuid": "76a50555-9320-4af7-951b-f81a5a334866",
+          "body": "{\n  \"items\": [\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000201\",\n      \"salePrice\": \"25.50\",\n      \"currency\": \"BRL\"\n    },\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000202\",\n      \"salePrice\": \"14.75\",\n      \"currency\": \"BRL\"\n    },\n    {\n      \"inventoryItemId\": \"00000000-0000-4000-8000-000000000203\",\n      \"salePrice\": \"999.99\",\n      \"currency\": \"BRL\"\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Sucesso: preços decimais em BRL para itens solicitados",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "filePath": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "databucketID": "",
+          "bodyType": "INLINE",
+          "callbacks": [],
+          "crudKey": "id"
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "6bad6cec-cec1-40df-8af9-714e2b1c575f"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "callbacks": []
+}

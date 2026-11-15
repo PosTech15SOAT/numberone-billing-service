@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Seu orçamento | NumberOne</title>
+    <link rel="stylesheet" th:href="@{/css/budget.css}">
+</head>
+<body>
+<main>
+    <header>NumberOne</header>
+    <h1>Seu orçamento</h1>
+    <dl>
+        <dt>Orçamento</dt><dd class="identifier" th:text="${budget.budgetId()}"></dd>
+        <dt>Revisão comercial</dt><dd th:text="${budget.budgetVersion()}"></dd>
+        <dt>Valor proposto</dt><dd class="amount" th:text="${budget.quotedAmount() == null ? 'não informado' : budget.quotedAmount().toPlainString().replace('.', ',')}"></dd>
+        <dt>Link válido até</dt><dd><span th:text="${expiresAt}"></span> (UTC)</dd>
+    </dl>
+    <p>A decisão é integral e se refere ao valor proposto desta revisão.</p>
+    <details th:if="${budget.composition() != null and !budget.composition().items().isEmpty()}">
+        <summary>Composição registrada</summary>
+        <p>Os dados abaixo não substituem o valor proposto, que pode ter sido informado manualmente.</p>
+        <ol>
+            <li th:each="item : ${budget.composition().items()}">
+                Valor do serviço: <span th:text="${item.serviceAmount() == null ? 'não informado' : item.serviceAmount().toPlainString().replace('.', ',')}"></span><span th:if="${item.status() == 'CANCELLED'}"> — item cancelado</span>
+                <ul th:if="${!item.supplies().isEmpty()}">
+                    <li th:each="supply : ${item.supplies()}">
+                        Insumo — quantidade: <span th:text="${supply.quantity() == null ? 'não informada' : supply.quantity()}"></span>;
+                        preço unitário: <span th:text="${supply.salePrice() == null ? 'não informado' : supply.salePrice().toPlainString().replace('.', ',')}"></span><span th:if="${supply.currency() != null}" th:text="${' (' + supply.currency() + ')'}"></span>
+                    </li>
+                </ul>
+            </li>
+        </ol>
+    </details>
+    <h2>Registre sua decisão</h2>
+    <p>Confira o orçamento e marque a confirmação da opção desejada antes de continuar.</p>
+    <div class="actions">
+        <form method="post" th:action="@{/api/public/orcamentos-ordem-servico/aprovar}">
+            <input type="hidden" name="token" th:value="${authorization.token()}">
+            <label><input type="checkbox" name="confirmacao" value="sim" required> Confirmo a aprovação integral deste orçamento.</label>
+            <button class="approve" type="submit">Aprovar orçamento</button>
+        </form>
+        <form method="post" th:action="@{/api/public/orcamentos-ordem-servico/rejeitar}">
+            <input type="hidden" name="token" th:value="${authorization.token()}">
+            <label><input type="checkbox" name="confirmacao" value="sim" required> Confirmo a rejeição deste orçamento.</label>
+            <button class="reject" type="submit">Rejeitar orçamento</button>
+        </form>
+    </div>
+    <footer>Em caso de dúvida, entre em contato com a oficina. Não compartilhe seu link de autorização.</footer>
+</main>
+</body>
+</html>
