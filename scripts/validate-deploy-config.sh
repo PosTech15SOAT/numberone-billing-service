@@ -16,15 +16,6 @@ def boolean(name):
         raise SystemExit(f"{name} deve ser true ou false.")
     return value == "true"
 
-def internal_url(name):
-    value = require(name)
-    url = urlsplit(value)
-    if (url.scheme not in ("http", "https") or not url.hostname
-            or url.hostname in ("localhost", "127.0.0.1", "::1", "localstack", "localstack-dynamodb")
-            or url.hostname.endswith(".invalid") or url.username or url.password
-            or url.query or url.fragment or any(c.isspace() for c in value)):
-        raise SystemExit(f"{name} exige URL de serviço no ambiente AWS, sem credenciais.")
-
 def queue_url(name):
     url = urlsplit(require(name))
     expected_host = f"sqs.{require('AWS_REGION')}.amazonaws.com"
@@ -35,8 +26,6 @@ def queue_url(name):
         raise SystemExit(f"{name} exige URL SQS Standard da conta/região configurada.")
 
 import base64
-for name in ("OS_SERVICE_BASE_URL", "INVENTORY_SERVICE_BASE_URL"):
-    internal_url(name)
 try:
     key = base64.b64decode(require("BUDGET_NOTIFICATION_ENCRYPTION_KEY"), validate=True)
 except ValueError:

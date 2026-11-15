@@ -1,22 +1,25 @@
 # Configuração para a primeira tentativa
 
-Configure o GitHub **Environment `homologation` em cada repositório**. Valores abaixo
-são contratos de código, não evidência de configuração no GitHub/AWS. Todos os valores
-reais do ambiente remoto estão PENDENTES DE VALIDAÇÃO OPERACIONAL. Não foram consultados.
+O Billing usa Organization/Repository Variables e Secrets, **sem GitHub Environment**.
+Conta/região, EKS, ECR Billing, RDS e metadados do secret Billing foram consultados
+em modo somente leitura nesta revisão. A configuração efetiva no GitHub não foi consultada.
+As seções OS/Inventory abaixo preservam o diagnóstico anterior; para o fluxo atual
+do Billing consulte [CI/CD](../../../k8s/CI-CD.md).
 
 ## Comum aos três repositórios
 
 | Tipo | Nome exato | Valor/condição |
 |---|---|---|
-| Variable | `AWS_REGION` | `us-east-1` é o default/exemplo Terraform; preencher conforme ambiente efetivo. |
-| Variable | `AWS_ACCOUNT_ID` | Conta de 12 dígitos, PENDENTE; não deduzir de imagens locais antigas. |
-| Variable | `EKS_CLUSTER_NAME` | `numberone-lab-eks` com defaults Cloud; confirmar output efetivo. |
-| Variable | `ECR_REPOSITORY` | Billing `numberone-billing`; OS `numberone-os`; Inventory `numberone-inventory`. |
-| Variable | `DB_IDENTIFIER` | `numberone-lab-postgres` com defaults Database; confirmar output efetivo. |
-| Variable | `DB_SECRET_ARN` | ARN completo Secrets Manager, exclusivo do serviço, mesma conta/região. Não usar secret master RDS. |
+| Organization Variable | `AWS_REGION` | `us-east-1`, confirmado. |
+| Organization Variable | `AWS_ACCOUNT_ID` | `891377201345`, confirmado. |
+| Organization Variable | `EKS_CLUSTER_NAME` | `numberone-eks`, ACTIVE. |
+| Fixo no workflow Billing | `ECR_REPOSITORY` | `numberone-billing`; não exige Variable. |
+| Organization Variable | `DB_IDENTIFIER` | `numberone-postgres`, available. |
 | Secret | `AWS_ACCESS_KEY_ID` | Sessão temporária Academy do operador/runner. |
 | Secret | `AWS_SECRET_ACCESS_KEY` | Mesma sessão. |
 | Secret | `AWS_SESSION_TOKEN` | Mesma sessão, renovado junto com as outras duas chaves. |
+
+O Terraform resolve o ARN do Secret exclusivo de cada serviço pelo nome; o runner precisa de `secretsmanager:DescribeSecret` para esse Secret.
 
 Os workflows não usam OIDC, `AWS_ROLE_ARN`, `MAIL_*` do monólito ou senhas SQL
 armazenadas diretamente como GitHub Secret. IAM do runner precisa permitir leitura
@@ -27,22 +30,23 @@ Cluster API/RBAC/EKS access entries para essa identidade continuam PENDENTES.
 
 | Tipo | Nome exato | Condição |
 |---|---|---|
-| Variable | `OS_SERVICE_BASE_URL` | URL HTTP/HTTPS real da OS; entre namespaces usar DNS completo. |
-| Variable | `INVENTORY_SERVICE_BASE_URL` | URL real do Inventory. |
-| Variable | `BUDGET_APPROVAL_BASE_URL` | HTTPS público do ambiente, caminho exato `/api/public/orcamentos-ordem-servico/decisao`, sem query/fragmento/credenciais. DNS/certificado/rota ainda precisam comprovação. |
+| ConfigMap | `OS_SERVICE_BASE_URL` | `http://numberone-os-service.numberone-os.svc.cluster.local:8080`. |
+| ConfigMap | `INVENTORY_SERVICE_BASE_URL` | `http://numberone-inventory-service.numberone-inventory.svc.cluster.local:8080`. |
+| ConfigMap | `BUDGET_APPROVAL_BASE_URL` | `https://billing.example.invalid/api/public/orcamentos-ordem-servico/decisao`, temporária e sem acesso público. |
 | Variable nova | `OUTBOX_ENABLED` | `false` por padrão. Só `true` após fila/IAM e consumidor OS preparados. |
 | Variable nova | `SQS_QUEUE_URL` | Obrigatória se Outbox ligada; URL HTTPS SQS Standard da conta/região. Mesma fila em `BILLING_SQS_QUEUE_URL` da OS. |
 | Secret novo | `BUDGET_NOTIFICATION_ENCRYPTION_KEY` | Obrigatório; AES de 32 bytes em base64 para proteger dados comerciais mesmo com SMTP desligado. Preservar valor em ambientes com dados; não rotacionar como rotina de deploy. |
 
-Namespace fixo `numberone-billing`. Secret Manager esperado pelo ARN: com defaults
-Terraform, contêiner `numberone-billing-database`, ainda sem versão/valor declarado.
+Namespace fixo `numberone-billing`, criado pelo workflow e ainda ausente no EKS.
+Secret Manager `numberone-billing-database` existente com versão `AWSCURRENT`;
+nenhum valor do secret foi consultado nesta revisão.
 Formato SecretString: JSON com `username` (role exclusiva, identificador SQL simples)
 e `password` não vazios. Banco **`numberone_billing`**, owner/DDL para Flyway;
 usuário diferente do master. Não copiar credencial Kind.
 
 Workflow gera `numberone-billing-runtime-config` (DB_URL SSL, URLs, região e SQS)
 e `numberone-billing-secret` (DB_USERNAME/DB_PASSWORD/chave comercial). Overlay usa
-`SPRING_PROFILES_ACTIVE=homologation`; readiness inclui banco. Outbox false é só
+Sem profile Spring explícito; readiness inclui banco. Outbox false é só
 modo técnico: eventos persistem sem publicação. Não declarar Saga funcional nesse modo.
 `MERCADO_PAGO_ENABLED`, `MERCADO_PAGO_WEBHOOK_ENABLED` e
 `BUDGET_NOTIFICATIONS_ENABLED` ficam false; não há parâmetros de pipeline para ligá-los.
