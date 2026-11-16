@@ -1,10 +1,12 @@
 package br.com.fiap.numberone.billing.budget.infrastructure.config;
 
 import br.com.fiap.numberone.billing.budget.application.gateways.IntegrationEventPublicationGateway;
+import br.com.fiap.numberone.billing.budget.infrastructure.outbox.HttpIntegrationEventPublicationGateway;
 import br.com.fiap.numberone.billing.budget.infrastructure.outbox.IntegrationEventOutboxRepository;
 import br.com.fiap.numberone.billing.budget.infrastructure.outbox.OutboxPublisher;
 import br.com.fiap.numberone.billing.budget.infrastructure.outbox.SqsIntegrationEventPublicationGateway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +18,9 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.retries.StandardRetryStrategy;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
+import java.net.URI;
+import java.nio.file.Path;
+
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "billing.outbox.enabled", havingValue = "true")
 @EnableConfigurationProperties({OutboxPublisherProperties.class, SqsPublicationProperties.class})
@@ -23,11 +28,13 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 public class OutboxPublicationConfig {
 
     @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(name = "billing.outbox.transport", havingValue = "sqs", matchIfMissing = true)
     DefaultCredentialsProvider sqsCredentialsProvider() {
         return DefaultCredentialsProvider.builder().build();
     }
 
     @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(name = "billing.outbox.transport", havingValue = "sqs", matchIfMissing = true)
     public SqsClient sqsClient(SqsPublicationProperties properties, AwsCredentialsProvider credentialsProvider) {
         var builder = SqsClient.builder().region(Region.of(properties.region())).credentialsProvider(credentialsProvider)
                 .httpClientBuilder(UrlConnectionHttpClient.builder()
@@ -40,8 +47,22 @@ public class OutboxPublicationConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "billing.outbox.transport", havingValue = "sqs", matchIfMissing = true)
     IntegrationEventPublicationGateway integrationEventPublicationGateway(SqsClient client, SqsPublicationProperties properties) {
+        if (properties.queueUrl() == null) {
+            throw new IllegalArgumentException("SQS_QUEUE_URL é obrigatória para publicação direta no SQS.");
+        }
         return new SqsIntegrationEventPublicationGateway(client, properties.queueUrl());
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(name = "billing.outbox.transport", havingValue = "http")
+    HttpIntegrationEventPublicationGateway httpIntegrationEventPublicationGateway(
+            @Value("${billing.outbox.bridge-url}") String bridgeUrl,
+            @Value("${billing.outbox.bridge-token-file}") String tokenFile,
+            SqsPublicationProperties properties) {
+        return new HttpIntegrationEventPublicationGateway(URI.create(bridgeUrl), Path.of(tokenFile),
+                properties.connectionTimeout(), properties.apiCallTimeout());
     }
 
     @Bean

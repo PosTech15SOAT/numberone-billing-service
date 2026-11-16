@@ -10,7 +10,8 @@ public record SqsPublicationProperties(String region, URI queueUrl, URI endpoint
                                        Duration connectionTimeout, Duration readTimeout, Duration apiCallTimeout) {
 
     public SqsPublicationProperties {
-        if (region == null || region.isBlank() || !httpUri(queueUrl) || (endpoint != null && !httpUri(endpoint))
+        if (region == null || region.isBlank() || (queueUrl != null && !httpUri(queueUrl))
+                || (endpoint != null && !httpUri(endpoint))
                 || !positive(connectionTimeout) || !positive(readTimeout) || !positive(apiCallTimeout)
                 || connectionTimeout.compareTo(apiCallTimeout) > 0 || readTimeout.compareTo(apiCallTimeout) > 0) {
             throw new IllegalArgumentException("Configuração de região, fila, endpoint ou timeouts SQS inválida");

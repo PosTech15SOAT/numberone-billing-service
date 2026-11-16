@@ -37,6 +37,8 @@ jobs:
       DB_IDENTIFIER: ${{ vars.DB_IDENTIFIER }}
       OUTBOX_ENABLED: ${{ vars.OUTBOX_ENABLED || 'false' }}
       SQS_QUEUE_URL: ${{ vars.SQS_QUEUE_URL }}
+      SQS_BRIDGE_URL: ${{ vars.SQS_BRIDGE_URL }}
+      BUDGET_APPROVAL_BASE_URL: ${{ vars.BUDGET_APPROVAL_BASE_URL }}
       BUDGET_NOTIFICATION_ENCRYPTION_KEY: ${{ secrets.BUDGET_NOTIFICATION_ENCRYPTION_KEY }}
 
     steps:
@@ -58,7 +60,7 @@ jobs:
             echo "::error::O deploy exige a branch main."
             exit 1
           fi
-          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+          for name in AWS_REGION AWS_ACCOUNT_ID ECR_REPOSITORY EKS_CLUSTER_NAME DB_IDENTIFIER BUDGET_APPROVAL_BASE_URL BUDGET_NOTIFICATION_ENCRYPTION_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::$name não foi configurado no repositório ou organização."
               exit 1
@@ -165,10 +167,13 @@ jobs:
           jq -n --arg namespace "$K8S_NAMESPACE" \
             --arg url "jdbc:postgresql://$db_host:$db_port/numberone_billing?sslmode=require" \
             --arg region "$AWS_REGION" --arg outbox "$OUTBOX_ENABLED" --arg queue "$SQS_QUEUE_URL" \
+            --arg bridge "$SQS_BRIDGE_URL" \
             '{
               apiVersion: "v1", kind: "ConfigMap",
               metadata: {name: "numberone-billing-runtime-config", namespace: $namespace},
-              data: {DB_URL: $url, AWS_REGION: $region, OUTBOX_ENABLED: $outbox, SQS_QUEUE_URL: $queue, SQS_ENDPOINT: ""}
+              data: {DB_URL: $url, AWS_REGION: $region, OUTBOX_ENABLED: $outbox, SQS_QUEUE_URL: $queue,
+                     SQS_ENDPOINT: "", SQS_BRIDGE_URL: $bridge,
+                     SQS_TRANSPORT: (if $bridge == "" then "sqs" else "http" end)}
             }' > "$runtime_directory/configmap.json"
           jq --arg namespace "$K8S_NAMESPACE" '{
               apiVersion: "v1", kind: "Secret", type: "Opaque",

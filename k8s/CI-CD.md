@@ -7,7 +7,7 @@
 - Organization Variables: `AWS_ACCOUNT_ID`, `AWS_REGION`, `EKS_CLUSTER_NAME`, `DB_IDENTIFIER`. Organization Secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` válidos. Valores previstos: conta `891377201345`, região `us-east-1`, cluster `numberone-eks`, RDS `numberone-postgres`.
 - O ARN do secret de banco é descoberto automaticamente com Terraform; não configure `DB_SECRET_ARN` no GitHub. O secret de aplicação no Secrets Manager deve conter `username` e `password` distintos da credencial master. O banco, as permissões AWS/EKS e o acesso de rede devem estar prontos antes do deploy.
 
-Billing: Java 25, Testcontainers, cobertura consolidada mínima de 80%, ECR e namespace `numberone-billing`. URLs internas e de decisão são definidas no ConfigMap do overlay; Repository Secret: `BUDGET_NOTIFICATION_ENCRYPTION_KEY`. Com `OUTBOX_ENABLED=true`, informe também `SQS_QUEUE_URL`. O secret AWS é `numberone-billing-database`.
+Billing: Java 25, Testcontainers, cobertura consolidada mínima de 80%, ECR e namespace `numberone-billing`. URLs internas são definidas no ConfigMap do overlay e a URL de decisão é injetada pelo workflow de deploy; Repository Secret: `BUDGET_NOTIFICATION_ENCRYPTION_KEY`. Com `OUTBOX_ENABLED=true`, informe também `SQS_QUEUE_URL`. O secret AWS é `numberone-billing-database`.
 
 ## Configuração exata do primeiro deploy
 
@@ -20,7 +20,7 @@ Billing: Java 25, Testcontainers, cobertura consolidada mínima de 80%, ECR e na
 | Organization Secrets | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Mesma sessão Academy válida; organização deve liberar acesso ao repositório Billing. |
 | ConfigMap | `INVENTORY_SERVICE_BASE_URL` | `http://numberone-inventory-service.numberone-inventory.svc.cluster.local:8080`. |
 | ConfigMap | `OS_SERVICE_BASE_URL` | `http://numberone-os-service.numberone-os.svc.cluster.local:8080`, conforme manifests da OS. |
-| ConfigMap | `BUDGET_APPROVAL_BASE_URL` | `https://billing.example.invalid/api/public/orcamentos-ordem-servico/decisao` (temporária, sem acesso público). |
+| Repository Variable | `BUDGET_APPROVAL_BASE_URL` | Output `billing_budget_approval_base_url` da stack Cloud, incluindo o caminho HTTPS da decisão. O render local sem essa variável usa a URL temporária do overlay. |
 | Repository Secret | `BUDGET_NOTIFICATION_ENCRYPTION_KEY` | Chave própria AES de 32 bytes codificada em base64; não copiar fixture nem rotacionar chave existente como parte do deploy. |
 | Repository Variable opcional | `OUTBOX_ENABLED` | Omitir ou `false` no primeiro deploy. |
 | Repository Variable condicional | `SQS_QUEUE_URL` | Exigida apenas se `OUTBOX_ENABLED=true`; manter Outbox desligada nesta etapa. |

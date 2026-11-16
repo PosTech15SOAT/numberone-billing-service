@@ -66,9 +66,11 @@ jobs:
       - name: Validar manifests Kubernetes
         env:
           IMAGE_URI: registry.example.invalid/numberone-billing@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          BUDGET_APPROVAL_BASE_URL: https://gateway.example.invalid/api/public/orcamentos-ordem-servico/decisao
         run: |
           mkdir -p rendered-manifests
           bash scripts/render-kubernetes.sh > rendered-manifests/billing.yaml
+          grep -Fx "  BUDGET_APPROVAL_BASE_URL: $BUDGET_APPROVAL_BASE_URL" rendered-manifests/billing.yaml
           docker run --rm -v "$PWD:/workspace:ro" ghcr.io/yannh/kubeconform:v0.8.0 \
             -strict -summary -kubernetes-version 1.36.0 /workspace/rendered-manifests
 
