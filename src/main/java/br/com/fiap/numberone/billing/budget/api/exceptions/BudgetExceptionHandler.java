@@ -16,9 +16,9 @@ import br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidBudgetDataE
 import br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidBudgetStatusException;
 import br.com.fiap.numberone.billing.budget.domain.exceptions.InvalidServiceOrderStatusException;
 import br.com.fiap.numberone.billing.budget.domain.exceptions.ObsoleteBudgetRevisionException;
-import br.com.fiap.numberone.billing.budget.infrastructure.logging.SafeExceptionDetails;
+import br.com.fiap.numberone.billing.shared.infrastructure.logging.SafeExceptionDetails;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

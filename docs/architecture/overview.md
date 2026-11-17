@@ -18,7 +18,7 @@ flowchart LR
     mp -->|Webhook assinado| billing
 ```
 
-Gateway/Authorizer é a fronteira de autenticação administrativa decidida para a plataforma; seu provisionamento e isolamento não são comprovados por este repositório. As relações OS/Inventory representam os adaptadores implementados, exercitados com mocks. O consumo dos eventos na OS depende de implementação externa. Mercado Pago opera somente por habilitação explícita em `local`/`TEST`.
+Gateway/Authorizer é a fronteira de autenticação administrativa decidida para a plataforma; seu provisionamento e isolamento não são comprovados por este repositório. As relações OS/Inventory representam os adaptadores implementados, exercitados com mocks. O consumo dos eventos na OS depende de implementação externa. Mercado Pago exige habilitação explícita em `TEST`, inclusive no EKS.
 
 ## Containers — C4 nível 2
 
@@ -67,7 +67,7 @@ flowchart TB
 
 As setas mostram a colaboração em execução; as interfaces das portas pertencem a `application`, e os adaptadores as implementam em `infrastructure`. O código se organiza primeiro por domínio (`budget`, `payment`), depois por `api`, `application`, `domain` e `infrastructure`. `domain` e `application` não dependem de Spring/JPA. A composição de beans e as transações ficam na infraestrutura. Mapeadores separam DTOs HTTP, agregados Java e entidades JPA.
 
-Há acoplamento local explícito: `ChargeGatewayImpl` consulta `budget` via JDBC para validar o orçamento aprovado. Payment reutiliza o repositório/publicador de Outbox localizado no pacote de infraestrutura de Budget; `IntegrationEventOutboxEntry` está na infraestrutura compartilhada. Não há serviços separados para esses dois domínios.
+Há acoplamento local explícito: `ChargeGatewayImpl` consulta `budget` via JDBC para validar o orçamento aprovado. Budget e Payment utilizam o repositório/publicador de Outbox e `IntegrationEventOutboxEntry` na infraestrutura compartilhada. Não há serviços separados para esses dois domínios.
 
 ## Consistência e limites de integração
 

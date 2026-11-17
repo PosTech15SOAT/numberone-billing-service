@@ -1,9 +1,9 @@
 package br.com.fiap.numberone.billing.budget.infrastructure.notifications;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import br.com.fiap.numberone.billing.budget.application.exceptions.BudgetNotificationUnavailableException;
 import br.com.fiap.numberone.billing.budget.infrastructure.config.BudgetNotificationProperties;
-import br.com.fiap.numberone.billing.budget.infrastructure.logging.SafeExceptionDetails;
+import br.com.fiap.numberone.billing.shared.infrastructure.logging.SafeExceptionDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;

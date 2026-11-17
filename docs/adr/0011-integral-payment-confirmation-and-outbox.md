@@ -1,5 +1,7 @@
 # ADR 0011: Quitação integral de uma transação e evento na Outbox
 
+> Atualização: a restrição de execução a ambientes locais foi removida; TEST explícito e validações financeiras permanecem. Consulte [Mercado Pago](../integrations/mercado-pago.md).
+
 **Status:** Aceita — política do principal evoluída conforme histórico abaixo.
 
 **Data:** 2026-11-09

@@ -1,6 +1,6 @@
 package br.com.fiap.numberone.billing.payment.infrastructure.rest;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.IntegrationObservation;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.IntegrationObservation;
 import br.com.fiap.numberone.billing.payment.application.exceptions.ServiceOrderNotFoundException;
 import br.com.fiap.numberone.billing.payment.application.exceptions.ServiceOrderPaymentUnavailableException;
 import br.com.fiap.numberone.billing.payment.application.exceptions.ServiceOrderPaymentUnavailableException.Failure;

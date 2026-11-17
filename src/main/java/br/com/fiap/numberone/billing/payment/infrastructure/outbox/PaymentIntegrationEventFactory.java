@@ -1,6 +1,6 @@
 package br.com.fiap.numberone.billing.payment.infrastructure.outbox;
 
-import br.com.fiap.numberone.billing.infrastructure.outbox.IntegrationEventOutboxEntry;
+import br.com.fiap.numberone.billing.shared.infrastructure.outbox.IntegrationEventOutboxEntry;
 import br.com.fiap.numberone.billing.payment.domain.entities.Charge;
 import br.com.fiap.numberone.billing.payment.domain.enums.ChargeStatus;
 import org.springframework.stereotype.Component;

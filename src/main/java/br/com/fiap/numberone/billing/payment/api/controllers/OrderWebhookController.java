@@ -6,8 +6,8 @@ import br.com.fiap.numberone.billing.payment.application.usecases.ObserveOrderWe
 import br.com.fiap.numberone.billing.payment.application.usecases.ConfirmPaymentUseCase;
 import br.com.fiap.numberone.billing.payment.infrastructure.webhook.OrderWebhookIngress;
 import jakarta.servlet.http.HttpServletRequest;
-import br.com.fiap.numberone.billing.infrastructure.observability.HttpObservationFilter;
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.HttpObservationFilter;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;

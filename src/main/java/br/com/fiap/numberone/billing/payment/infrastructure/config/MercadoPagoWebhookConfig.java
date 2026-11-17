@@ -8,14 +8,12 @@ import br.com.fiap.numberone.billing.payment.infrastructure.webhook.MercadoPagoS
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(MercadoPagoWebhookProperties.class)
 public class MercadoPagoWebhookConfig {
     @Bean
-    MercadoPagoSignatureValidator mercadoPagoSignatureValidator(MercadoPagoWebhookProperties properties, Environment environment) {
-        if (properties.enabled()) MercadoPagoTestEnvironment.validate(environment);
+    MercadoPagoSignatureValidator mercadoPagoSignatureValidator(MercadoPagoWebhookProperties properties) {
         return new MercadoPagoSignatureValidator(properties.secret());
     }
 

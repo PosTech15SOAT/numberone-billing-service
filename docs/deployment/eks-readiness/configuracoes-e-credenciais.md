@@ -49,8 +49,8 @@ e `numberone-billing-secret` (DB_USERNAME/DB_PASSWORD/chave comercial). Overlay 
 Sem profile Spring explícito; readiness inclui banco. Outbox false é só
 modo técnico: eventos persistem sem publicação. Não declarar Saga funcional nesse modo.
 `MERCADO_PAGO_ENABLED`, `MERCADO_PAGO_WEBHOOK_ENABLED` e
-`BUDGET_NOTIFICATIONS_ENABLED` ficam false; não há parâmetros de pipeline para ligá-los.
-Nenhuma exceção TEST/Kind ou credencial financeira foi introduzida em AWS.
+`BUDGET_NOTIFICATIONS_ENABLED` fica false por padrão; sua ativação e os parâmetros SMTP estão documentados em [CI/CD](../../../k8s/CI-CD.md).
+O EKS permite a integração financeira com TEST explícito e os Secrets necessários. Confirme no painel a origem da credencial de teste antes da ativação; consulte [Mercado Pago](../../integrations/mercado-pago.md).
 
 ## OS
 

@@ -22,11 +22,11 @@ Referência: [probes do Spring Boot](https://docs.spring.io/spring-boot/4.0/refe
 
 ECS significa Elastic Common Schema. O serviço emite JSON ECS em stdout pelo Spring Boot (`logging.structured.format.console=ecs`), SLF4J 2 Fluent API e `addKeyValue`. Campos com pontos são organizados em objetos aninhados pelo formatter. `LOG_LEVEL` controla o nível geral, INFO por padrão. Domain/Application não possuem logging.
 
-`HttpObservationFilter` registra HTTP_REQUEST_STARTED e HTTP_REQUEST_COMPLETED, inclusive em rejeições anteriores ao controller, com a exceção de health descrita acima. Aceita um único X-Correlation-Id UUID, ou gera outro se ausente/inválido/repetido. Mantém MDC `correlation.id` no fluxo e restaura o contexto em finally, sem header de resposta ou preenchimento manual de trace.id/span.id.
+`HttpObservationFilter` registra HTTP_REQUEST_STARTED e HTTP_REQUEST_COMPLETED, inclusive em rejeições anteriores ao controller, com a exceção de health descrita acima. Aceita um único X-Correlation-Id UUID, ou gera outro se ausente/inválido/repetido. Mantém MDC `correlation_id` no fluxo e restaura o contexto em finally, sem header de resposta ou preenchimento manual de trace.id/span.id.
 
 O evento final contém método, rota conhecida/template, status, duração em nanossegundos (`event.duration`), resultado e erro/etapa disponíveis. Antes da resolução MVC, a rota pode ser UNMAPPED. O histórico interno não atende à seleção de templates `/api/` e também permanece UNMAPPED. Não registra URI arbitrária/query/body.
 
-MDC cobre Servlet síncrono, integrações e callbacks de commit na requisição. Não se propaga por headers/executores/reinícios; webhook é nova requisição. Workers se relacionam por IDs comerciais e event.id/notification.id. A correlação do envelope SQS é independente. Não há tracing distribuído configurado.
+MDC cobre Servlet síncrono, integrações e callbacks de commit na requisição. O interceptor `ServiceRequestHeaders` propaga o UUID nas integrações HTTP em que está configurado; MDC não se propaga por si só a executores/reinícios. Webhook é nova requisição. Workers se relacionam por IDs comerciais e event.id/notification.id. A correlação do envelope SQS é independente. O contexto de trace é injetado pelo Java Agent quando há span ativo; sua propagação entre processos ainda requer validação no EKS.
 
 ## Integrações e marcos
 
@@ -60,7 +60,7 @@ Códigos BUDGET_* do publicador foram preservados na reutilização por Payment.
 
 ## Diagnóstico de webhook
 
-Localize HTTP_REQUEST_COMPLETED e correlation.id, depois PAYMENT_WEBHOOK_REJECTED com etapa/categoria. Após PAYMENT_WEBHOOK_VERIFIED acompanhe consulta, situação e PAYMENT_CONFIRMED/event.id quando houver quitação.
+Localize HTTP_REQUEST_COMPLETED e correlation_id, depois PAYMENT_WEBHOOK_REJECTED com etapa/categoria. Após PAYMENT_WEBHOOK_VERIFIED acompanhe consulta, situação e PAYMENT_CONFIRMED/event.id quando houver quitação.
 
 | Etapa/categoria | Interpretação |
 | --- | --- |
@@ -82,6 +82,20 @@ Não existem mais captura bruta, snapshots A/B ou flag de diagnóstico em runtim
 
 Logs não incluem tokens, e-mails, CPF/cartão, chaves idempotentes, assinatura/manifesto, credenciais, funcionário, URL de checkout ou payloads completos. `SafeExceptionDetails` preserva tipos/frames e omite mensagens externas; mensagens técnicas controladas podem aparecer. Filtros públicos ocultam conteúdo protegido do MVC. Access log Tomcat e request-details estão desligados; não habilitar dumps/wire logging para investigar assinatura.
 
-Não há Actuator, Prometheus, Datadog, OTLP, tracer ou métricas de negócio configurados no POM/recursos. `event.duration` é atributo de log, não métrica exportada. Ingestão, alarmes, tracing e proteção dos logs de Gateway/ingress são dependências externas não comprovadas. Não há SLA/SLO definido neste repositório.
+O Actuator expõe health. A imagem inclui o Datadog Java Agent; não há exportador de métricas de negócio configurado no POM/recursos. `event.duration` é atributo de log, não métrica exportada. Ingestão, alarmes, tracing e proteção dos logs de Gateway/ingress são dependências externas não comprovadas. Não há SLA/SLO definido neste repositório.
 
-Testes em [infrastructure/observability](../../src/test/java/br/com/fiap/numberone/billing/infrastructure/observability), WebhookObservabilityTest e ITs de persistência exercitam MDC/ECS/sanitização e commit/rollback. [Operação](local-testing.md) e [pendências](../technical-debt.md).
+Testes em [shared/integration/observability](../../src/test/java/br/com/fiap/numberone/billing/shared/integration/observability), WebhookObservabilityTest e ITs de persistência exercitam MDC/ECS/sanitização e commit/rollback. [Operação](local-testing.md) e [pendências](../technical-debt.md).
+
+## Datadog no EKS
+
+A imagem inclui `dd-java-agent` 1.64.2 verificado por SHA-256 e inicia com `-javaagent:/app/dd-java-agent.jar`. O Deployment usa `DD_SERVICE=numberone-billing`, `DD_TRACE_ENABLED=true`, `DD_LOGS_INJECTION=true` e `DD_AGENT_HOST` via `status.hostIP`; a porta APM padrão é 8126. Não há chave Datadog na aplicação. `DD_ENV=academy`. Na renderização do deploy, `AWS_ACCOUNT_ID` vem de `vars.AWS_ACCOUNT_ID` e `DD_VERSION` vem de `GITHUB_SHA`, o SHA do artefato; o entrypoint acrescenta `aws_account_id:<conta>` a `DD_TAGS`, preservando as tags anteriores; confirmar que não há injeção automática adicional. No kind o tracing é desligado. A imagem desabilita query strings em spans HTTP de entrada e saída; não habilitar captura de Authorization, corpos ou URLs sensíveis.
+
+O JSON ECS fornece `@timestamp`, `log.level`, `log.logger`, `service.name`, mensagem e `correlation_id`; o agente pode injetar `dd.trace_id` e `dd.span_id` no MDC. Confirmar no pipeline Datadog a interpretação dos campos ECS aninhados e IDs como strings antes de alegar correlação. Buscar uma OS por `service_order.id` e correlacionar pelo ID comercial, `correlation_id` e `event.id`; com trace presente, abrir o trace associado ao log. Chamadas HTTP podem propagar contexto automaticamente, sujeito à compatibilidade e ao Gateway. Outbox, reinícios, SQS e ponte HTTP não comprovam continuidade de trace: usar os IDs do envelope e comerciais.
+
+No EKS, verificar Agent no mesmo nó, acesso a `status.hostIP:8126`, coleta de stdout e parsing, além de recursos e ausência de configuração duplicada. No vídeo demonstrar três serviços, requisição entre eles, trace e log correlacionado, erro/latência e Saga por IDs; conferir que dados sensíveis não aparecem. Nenhuma ingestão real foi comprovada nesta alteração.
+
+O tracer recebe a tag de conta por `DD_TAGS` para APM. A inclusão da conta nos logs não é automática pelo JSON ECS: verificar enriquecimento e parsing no Agent/pipeline. No Datadog, filtre por `env:academy`, `service:numberone-billing`, `version:<sha>` e `aws_account_id:<conta>`; confirme a presença da tag em APM e logs antes de usá-la como evidência. Cada integrante fornece sua própria variável de organização `AWS_ACCOUNT_ID`, sem alterar código.
+
+No JSON ECS, `service.name` deriva de `spring.application.name` (`numberone-billing-service`); o tracer injeta `dd.service=numberone-billing`. São campos de origens distintas; o mapeamento usado pelo pipeline Datadog deve ser verificado no EKS.
+
+Os nomes usam ponto para agrupar entidades ou contextos (`service_order.id`, `budget.revision_number`, `event.code`) e underline para palavras compostas (`service_order_item.id`). `correlation_id` é um atributo técnico independente. Padrões externos como `dd.trace_id` e `dd.span_id` permanecem inalterados.

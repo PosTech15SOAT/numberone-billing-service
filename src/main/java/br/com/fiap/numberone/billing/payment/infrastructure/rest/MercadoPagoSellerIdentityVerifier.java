@@ -1,6 +1,6 @@
 package br.com.fiap.numberone.billing.payment.infrastructure.rest;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.IntegrationObservation;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.IntegrationObservation;
 import br.com.fiap.numberone.billing.payment.infrastructure.config.MercadoPagoProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
