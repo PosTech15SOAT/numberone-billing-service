@@ -29,4 +29,20 @@ jq -n --arg revision "${DEPLOYMENT_REVISION:-}" --arg image "${IMAGE_URI%@*}" --
     patch: ([{op: "replace", path: "/data/BUDGET_APPROVAL_BASE_URL", value: $approvalUrl}] | tojson)
   }]} end)' > "$render_directory/kustomization.yaml"
 
+# O deploy fornece a conta validada e o SHA do artefato do workflow.
+# Renderizações locais sem esses valores continuam possíveis para revisão.
+if [[ -n "${AWS_ACCOUNT_ID:-}" ]]; then
+  if [[ ! "${AWS_ACCOUNT_ID:-}" =~ ^[0-9]{12}$ || ! "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "AWS_ACCOUNT_ID e GITHUB_SHA devem conter a conta e o SHA válidos." >&2
+    exit 1
+  fi
+  jq --arg account "$AWS_ACCOUNT_ID" --arg version "$GITHUB_SHA" \
+    --arg deployment "numberone-billing" '
+      .patches = ((.patches // []) + [{target: {kind: "Deployment", name: $deployment},
+        patch: ([{op: "add", path: "/spec/template/spec/containers/0/env/-", value: {name: "AWS_ACCOUNT_ID", value: $account}},
+                 {op: "add", path: "/spec/template/spec/containers/0/env/-", value: {name: "DD_VERSION", value: $version}}] | tojson)}])
+    ' "$render_directory/kustomization.yaml" > "$render_directory/kustomization.updated"
+  mv "$render_directory/kustomization.updated" "$render_directory/kustomization.yaml"
+fi
+
 kubectl kustomize "$render_directory"

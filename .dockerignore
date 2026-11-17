@@ -2,3 +2,4 @@
 !Dockerfile
 !target/
 !target/numberone-billing-service-*.jar
+!entrypoint.sh

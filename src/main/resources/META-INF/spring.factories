@@ -1,1 +1,1 @@
-org.springframework.boot.EnvironmentPostProcessor=br.com.fiap.numberone.billing.infrastructure.config.LocalProfileEnvironmentPostProcessor
+org.springframework.boot.EnvironmentPostProcessor=br.com.fiap.numberone.billing.shared.infrastructure.config.LocalProfileEnvironmentPostProcessor

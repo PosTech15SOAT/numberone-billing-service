@@ -28,17 +28,22 @@ Os manifests de homologação e o workflow manual ECR/EKS estão preparados em [
 
 Solicitar/reenviar aprovação exige `BUDGET_NOTIFICATION_ENCRYPTION_KEY` (32 bytes em Base64) e `BUDGET_APPROVAL_BASE_URL`, mesmo com SMTP desligado. Para entrega, configure `SMTP_*` e `BUDGET_NOTIFICATIONS_ENABLED=true`. O e-mail é texto simples; Thymeleaf renderiza a página pública de decisão.
 
-Mercado Pago e webhook exigem exclusivamente profile local/TEST, flags, token no processo e vendedor esperado conferido independentemente. O transporte atual não pode ser habilitado no EKS. [Guardas e contratos](docs/integrations/mercado-pago.md).
+Mercado Pago e webhook podem ser habilitados no EKS com configuração TEST explícita; o checkout exige token no processo e vendedor esperado conferido independentemente. A origem da credencial de teste deve ser confirmada no painel antes da ativação. [Guardas e contratos](docs/integrations/mercado-pago.md).
 
 ## Build e testes
 
 ```bash
-./mvnw test
-./mvnw verify
-./mvnw package -DskipTests
+# Unitários
+./mvnw clean test
+# Integração
+./mvnw clean verify -DskipUnitTests=true -DskipBddTests=true -DskipMergedCoverage=true
+# BDD/Cucumber
+./mvnw clean verify -DskipUnitTests=true -DskipIntegrationTests=true -DskipMergedCoverage=true
+# Suíte completa, cobertura consolidada e mínimo de 80%
+./mvnw clean verify
 ```
 
-Surefire executa `*Test`; Failsafe executa `*IT` durante verify. ITs requerem Docker/PostgreSQL Testcontainers; alguns testes HTTP também abrem sockets locais. O POM configura agentes Mockito/JaCoCo e gera cobertura consolidada em `target/site/jacoco-merged/`. [Qualidade e Sonar](docs/operations/quality.md).
+Os testes são agrupados por `budget` e `payment`, depois por `unit`, `integration` e `e2e`; a infraestrutura compartilhada fica em `shared`. As features em português ficam em `src/test/resources/features/budget/aprovacao_orcamento.feature` e `src/test/resources/features/payment/confirmacao_pagamento.feature` e percorrem orçamento, aprovação pública e pagamento por HTTP real, com PostgreSQL Testcontainers e integrações externas controladas. Integração e BDD requerem Docker. A execução consolidada desta alteração atingiu 93,16% de cobertura de linhas, acima do mínimo obrigatório de 80%. Veja [qualidade e testes](docs/operations/quality.md) para escopo, exceções de pacote, relatórios e configuração Maven.
 
 ## Endpoints principais
 
@@ -87,7 +92,7 @@ Todos os endpoints, DTOs, erros, autenticação, histórico, decisões e reenvio
 
 Autenticação administrativa pertence a API Gateway/Lambda Authorizer; Billing não valida JWT nem protege acesso administrativo direto. Isolamento de rede e procedência do contexto de auditoria precisam ser comprovados na plataforma. Mocks e testes não validam contratos dos serviços reais.
 
-PUBLISHED significa aceite SQS confirmado localmente; SENT da notificação significa aceite SMTP. Ambos podem duplicar em falhas de confirmação. O Billing não consome SQS nem implementa coordenador Saga. PENDING/UNKNOWN com reserva podem permanecer bloqueados sem recuperação automática; 202 não promete conclusão futura. Não há métricas exportadas/tracing/Actuator configurados. Esses limites e as dependências externas estão no [registro de débitos](docs/technical-debt.md).
+PUBLISHED significa aceite SQS confirmado localmente; SENT da notificação significa aceite SMTP. Ambos podem duplicar em falhas de confirmação. O Billing não consome SQS nem implementa coordenador Saga. PENDING/UNKNOWN com reserva podem permanecer bloqueados sem recuperação automática; 202 não promete conclusão futura. O Actuator expõe health e a imagem inclui tracer Datadog; a ingestão e métricas exportadas ainda não foram comprovadas. Esses limites e as dependências externas estão no [registro de débitos](docs/technical-debt.md).
 
 No MVP, as APIs administrativas e internas do Billing não possuem autenticação ou autorização HTTP. A autoria presencial usa UUID declarado em `X-Authenticated-Subject`. OS e Inventory são acessados por ClusterIP/DNS interno sem Bearer; acesso direto permite operações e autenticação/autorização futura permanece débito técnico. Consulte os contratos de integração para os limites e validações.
 

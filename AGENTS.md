@@ -11,11 +11,13 @@
 
 ## Logging
 
+- Para atributos estruturados, use ponto para agrupar uma entidade ou contexto com identidade própria e underline entre palavras compostas: `service_order.id`, `service_order_item.id`, `budget.revision_number` e `event.code`. `event.code` agrupa o código no contexto do evento. Não crie namespaces artificiais. Como identifica uma operação entre contextos, o atributo técnico independente é `correlation_id` no MDC e no JSON; o header permanece `X-Correlation-Id`. Preserve os nomes oficiais ECS e Datadog, como `dd.trace_id` e `dd.span_id`, e use o mesmo nome para o mesmo conceito nos serviços.
+
 - Preferir logging nos limites externos (API e Infrastructure). Domain e Application permanecem sem logging enquanto não existir necessidade concreta para isso.
 - Evitar logs duplicados e abstrações artificiais.
 - Emitir JSON Elastic Common Schema (ECS) em stdout usando o suporte nativo do Spring Boot; ECS aqui não significa Amazon ECS. A aplicação será executada no Amazon EKS.
-- Utilizar SLF4J 2 Fluent API com `addKeyValue` para atributos do evento: `event.code` em UPPER_SNAKE_CASE, mensagens objetivas em português e IDs em `budget.id`, `budget.version`, `service_order.id`, `notification.id` ou `event.id`, conforme a operação. O formatter ECS organiza esses nomes em objetos JSON aninhados.
-- Utilizar MDC somente para contexto compartilhado dentro de uma operação, com limpeza/restauração ao final. Não implementar correlação sem necessidade nem preencher `trace.id` ou `span.id` manualmente; esses campos pertencem à futura instrumentação de tracing.
+- Utilizar SLF4J 2 Fluent API com `addKeyValue` para atributos do evento: `event.code` em UPPER_SNAKE_CASE, mensagens objetivas em português e IDs em `budget.id`, `budget.revision_number`, `service_order.id`, `notification.id` ou `event.id`, conforme a operação. O formatter ECS organiza esses nomes em objetos JSON aninhados.
+- Utilizar MDC somente para contexto compartilhado dentro de uma operação, com limpeza/restauração ao final. Não preencher identificadores de trace ou span manualmente; o tracer injeta `dd.trace_id` e `dd.span_id` quando há contexto.
 - Registrar INFO para marcos confirmados, DEBUG para diagnóstico pontual, WARN para falhas recuperáveis e ERROR para falhas definitivas ou que exigem intervenção. Não registrar cada consulta, poll ou passagem de camada.
 - Registrar transições comerciais após o commit; nos workers, registrar sucesso somente após a confirmação local. Escolher um único ponto de logging por marco, sem repetir em controller, gateway e repository.
 - Não registrar tokens, e-mails, chaves, credenciais, conteúdo protegido ou payloads completos. Mensagens de exceções externas também podem conter segredos: preservar tipos e frames das causas sem serializar essas mensagens. Mensagens técnicas controladas da aplicação podem ser registradas.

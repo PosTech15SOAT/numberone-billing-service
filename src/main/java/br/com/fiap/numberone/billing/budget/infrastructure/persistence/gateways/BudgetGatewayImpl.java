@@ -15,15 +15,15 @@ import br.com.fiap.numberone.billing.budget.infrastructure.persistence.repositor
 import br.com.fiap.numberone.billing.budget.infrastructure.persistence.repositories.BudgetRevisionCounterRepository;
 
 import br.com.fiap.numberone.billing.budget.infrastructure.outbox.BudgetIntegrationEventFactory;
-import br.com.fiap.numberone.billing.budget.infrastructure.outbox.IntegrationEventOutboxRepository;
+import br.com.fiap.numberone.billing.shared.infrastructure.outbox.IntegrationEventOutboxRepository;
 import br.com.fiap.numberone.billing.budget.infrastructure.notifications.BudgetNotificationRepository;
 import jakarta.persistence.EntityManager;
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import br.com.fiap.numberone.billing.budget.application.exceptions.ExternalServiceException;
-import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
+import br.com.fiap.numberone.billing.shared.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -262,7 +262,7 @@ public class BudgetGatewayImpl implements BudgetGateway {
             public void afterCommit() {
                 ObservationLog.safely(() -> {
                     var log = LOGGER.atInfo().addKeyValue("budget.id", budget.getBudgetId())
-                            .addKeyValue("budget.version", budget.getBudgetVersion())
+                            .addKeyValue("budget.revision_number", budget.getBudgetVersion())
                             .addKeyValue("service_order.id", budget.getServiceOrderId())
                             .addKeyValue("budget.status", status)
                             .addKeyValue("outbox.persisted", status != BudgetStatus.DRAFT);

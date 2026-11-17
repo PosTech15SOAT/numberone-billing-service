@@ -1,5 +1,7 @@
 # ADR 0012: Verificação do vendedor e habilitação exclusivamente local TEST
 
+> Atualização: a restrição de execução a ambientes locais foi removida; TEST explícito e validações financeiras permanecem. Consulte [Mercado Pago](../integrations/mercado-pago.md).
+
 **Status:** Aceita — ampliada em 2026-11-10 para consulta e webhook.
 
 **Data:** 2026-11-09

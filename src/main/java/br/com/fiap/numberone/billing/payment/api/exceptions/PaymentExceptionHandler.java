@@ -1,6 +1,6 @@
 package br.com.fiap.numberone.billing.payment.api.exceptions;
 
-import br.com.fiap.numberone.billing.budget.infrastructure.logging.SafeExceptionDetails;
+import br.com.fiap.numberone.billing.shared.infrastructure.logging.SafeExceptionDetails;
 import br.com.fiap.numberone.billing.payment.api.controllers.PaymentAdminController;
 import br.com.fiap.numberone.billing.payment.api.dtos.PaymentErrorResponse;
 import br.com.fiap.numberone.billing.payment.application.exceptions.ApprovedBudgetUnavailableException;
@@ -15,7 +15,7 @@ import br.com.fiap.numberone.billing.payment.domain.exceptions.InvalidPaymentSta
 import br.com.fiap.numberone.billing.payment.domain.exceptions.PaymentIdempotencyConflictException;
 import br.com.fiap.numberone.billing.payment.domain.exceptions.ServiceOrderNotCompletedException;
 import br.com.fiap.numberone.billing.payment.infrastructure.rest.SellerIdentityVerificationException;
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

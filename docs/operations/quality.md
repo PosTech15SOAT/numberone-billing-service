@@ -2,7 +2,7 @@
 
 ## Ferramentas do repositório
 
-O [POM](../../pom.xml) configura Surefire (`*Test`), Failsafe (`*IT`), Mockito como agente explícito e JaCoCo 0.8.14 com agentes separados, merge e relatório em `target/site/jacoco-merged/`. SonarScanner Maven 4.0.0.4121 usa projeto `numberone-billing-service` e importa XML consolidado e relatórios dos dois executores. Não há exclusões adicionais de cobertura/análise no POM. Nenhum Checkstyle/PMD/SpotBugs está configurado nele.
+O [POM](../../pom.xml) configura Surefire e Failsafe (seleção detalhada abaixo), Mockito como agente explícito e JaCoCo 0.8.14 com agentes separados, merge e relatório em `target/site/jacoco-merged/`. SonarScanner Maven 4.0.0.4121 usa projeto `numberone-billing-service` e importa XML consolidado e relatórios unitários, de integração e BDD. Não há exclusões adicionais de cobertura/análise no POM. Nenhum Checkstyle/PMD/SpotBugs está configurado nele.
 
 [Compose Sonar](../../docker-compose.sonar.yml) usa Community Build fixada por digest, porta loopback 9000, volumes exclusivos, H2 e bootstrap checks desabilitados para uso local. Não é configuração de produção.
 
@@ -18,22 +18,49 @@ scripts/sonar-down.sh
 
 No primeiro acesso, configure a conta local e gere token no servidor. `SONAR_PORT` altera a porta; `MVN_CMD` escolhe executável Maven. O scan verifica servidor local UP, executa `clean verify sonar:sonar` e aguarda Quality Gate (até 300s). Os scripts de parada preservam volumes. Build/testes sem publicação: `./mvnw verify`.
 
-## Integração contínua
+## Organização e execução dos testes
 
-[CI](../../.github/workflows/ci.yml) executa `./mvnw --batch-mode clean verify` com Java 25 em pushes para `feature/**` e `develop`, e em PRs destinados a `develop`. O runner Ubuntu fornece Docker para os Testcontainers, sem Compose ou serviços adicionais. Após o merge dos dados unitários e de integração e a geração do relatório, `jacoco:check` lê `target/jacoco-merged.exec` e exige `LINE/COVEREDRATIO >= 0.80` no bundle, sem exclusões. É o mesmo conjunto de dados do XML consolidado; não há necessidade de outro plugin ou parser. A verificação também vale para `./mvnw verify` local.
+As classes ficam em `src/test/java/br/com/fiap/numberone/billing`, agrupadas por domínio antes da categoria:
 
-O [Dockerfile](../../Dockerfile) copia o JAR já validado, sem executar Maven novamente. Para construir localmente: `./mvnw verify` e `docker build -t numberone-billing-service:local .`. A imagem não é publicada. Os relatórios Surefire, Failsafe e JaCoCo são enviados como artifact mesmo quando uma etapa falha. Sonar permanece exclusivamente local.
+| Pacote | Responsabilidade | Seleção Maven | Relatórios / cobertura |
+| --- | --- | --- | --- |
+| `budget/unit`, `payment/unit` | Regras isoladas de domínio e aplicação, com JUnit/Mockito | Surefire: `unit/**/*Test` | `target/surefire-reports`, `target/jacoco-unit.exec` |
+| `budget/integration`, `payment/integration`, `shared/integration` | APIs, adaptadores, contratos, configuração Spring, observabilidade e persistência | Failsafe: `integration/**/*Test` e `integration/**/*IT` | `target/failsafe-reports`, `target/jacoco-integration.exec` |
+| `budget/e2e`, `payment/e2e`, `shared/support/e2e` | Steps de domínio, runner e infraestrutura BDD compartilhada | Failsafe: `e2e/**/*CucumberTest` | `target/bdd-reports`, `target/cucumber-reports`, `target/jacoco-bdd.exec` |
+| `payment/support`, `shared/support` | Fixtures e utilitários compartilhados; infraestrutura controlada do BDD | Sem execução direta | — |
 
-O fluxo é `feature/**` → PR automático para `develop` → revisão e CI → **merge manual** → CI em `develop`. O [workflow de abertura](../../.github/workflows/branch-flow.yml) usa somente `GITHUB_TOKEN`, consulta PR aberto antes de criar e não cria PR se não houver commits novos. Não aprova, faz merge ou exclui branches. Diferentemente do legado, não há promoção para `main` nem validação/deploy Kubernetes; a restrição de origem de PR para `main` não se aplica ao escopo do Billing.
+A exceção `payment.domain.entities.CheckoutReservationTest` permanece no pacote de produção para acessar operação package-private e é selecionada explicitamente como unitária. A antiga guarda package-private de ambiente foi removida junto com seu teste; os testes de configuração exercitam a ativação em Kubernetes. `SimulatedSmtpServer` fica junto ao consumidor, pois seus membros são package-private.
 
-Push e PR da mesma branch compartilham o grupo de concorrência do CI, cancelando execuções sobrepostas. Cada execução roda a suíte uma única vez. O CI de PR valida o commit de merge produzido pelo GitHub; se iniciado depois do término do CI do push (por exemplo, após aprovação manual), é uma validação adicional desse merge, que pode incluir mudanças em `develop`.
+```bash
+# Somente unitários
+./mvnw clean test
+# Somente integração
+./mvnw clean verify -DskipUnitTests=true -DskipBddTests=true -DskipMergedCoverage=true
+# Somente BDD
+./mvnw clean verify -DskipUnitTests=true -DskipIntegrationTests=true -DskipMergedCoverage=true
+# Todos os grupos, JAR e cobertura consolidada mínima de 80%
+./mvnw clean verify
+```
 
-Configuração necessária no GitHub (não aplicada automaticamente):
+Use Java 25 e Docker disponível para integração e BDD. A persistência utiliza PostgreSQL 17 Testcontainers; `MockoonEnvironmentIT` também inicia Mockoon. Muitos testes de adaptadores e HTTP não usam containers, mas pertencem à integração pela responsabilidade. `skipMergedCoverage` evita validar dados parciais nos comandos isolados; o comando completo e o job obrigatório não desativam a verificação. O comando anterior de integração recebe agora `-DskipBddTests=true`, pois `verify` também inclui BDD por padrão. Não há profile Maven novo. Use `clean` para evitar classes e dados de cobertura de execuções anteriores.
 
-1. Manter a branch `develop` existente e habilitar Actions, permitindo `actions/checkout`, `actions/setup-java` e `actions/upload-artifact`.
-2. Em **Settings → Actions → General → Workflow permissions**, habilitar **Allow GitHub Actions to create and approve pull requests**. Apesar do nome da opção, o workflow só cria PRs; as permissões de escrita ficam restritas a `pull-requests`. Políticas da organização podem impedir essa configuração.
-3. PRs criados/atualizados com `GITHUB_TOKEN` podem gerar execuções de `pull_request` aguardando aprovação. Quando aparecer o banner **Approve workflows to run**, uma pessoa com escrita deve autorizá-las. O CI de `push` roda independentemente disso. Ver [documentação de gatilhos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) e [permissões do repositório](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
-4. Para exigir revisão/CI e impedir integração direta, configurar proteção/ruleset de `develop`: exigir PR, aprovação humana e o check **Validação obrigatória**, com atualização em relação à base antes do merge; restringir bypass conforme a equipe. Desabilitar **Allow auto-merge** e **Automatically delete head branches** nas configurações gerais do repositório para manter o fluxo exclusivamente manual.
+## BDD/Cucumber
+
+As features em português ficam em `src/test/resources/features/budget/aprovacao_orcamento.feature` e `src/test/resources/features/payment/confirmacao_pagamento.feature`. `BillingCucumberTest`, em `shared/support/e2e`, seleciona o diretório de features e os glues de `budget.e2e`, `payment.e2e` e `shared.support.e2e`. O cenário Payment reutiliza os steps de aprovação de Budget. Para executar um cenário isolado, acrescente `-Dcucumber.filter.tags=@budget` ou `-Dcucumber.filter.tags=@payment` ao comando BDD acima. Cucumber 7.34.3 executa pela JUnit Platform Suite; Surefire e a execução Failsafe de integração selecionam apenas Jupiter. A descoberta direta do engine Cucumber está desativada em `junit-platform.properties` para impedir a execução duplicada fora da suite. A configuração segue a [documentação do engine Cucumber](https://github.com/cucumber/cucumber-jvm/blob/v7.34.3/cucumber-junit-platform-engine/README.md).
+
+O cenário de orçamento cria uma cotação calculada de R$ 200,00 (serviço de R$ 150,00 e dois materiais de R$ 25,00), solicita aprovação, recupera o link do conteúdo protegido persistido, abre a página pública e confirma. Verifica valor, estado, origem remota, consumo da autorização, cancelamento da notificação e eventos na outbox com identidade e valor corretos.
+
+O cenário de pagamento parte da mesma aprovação, conclui a OS controlada, cria checkout e entrega duas vezes o webhook com assinatura válida. Verifica quitação pela evidência financeira e apenas um evento `PagamentoConfirmado`. Não altera status de cobrança por SQL. As portas de checkout e consulta financeira usam doubles; casos de uso, HMAC, HTTP, transações e persistência continuam reais. Isso testa a jornada do Billing, sem certificar contratos ou transporte reais do provedor.
+
+Spring Boot Test inicia o Billing em porta aleatória com PostgreSQL descartável. OS e Inventory respondem em servidor HTTP loopback, mantendo os adaptadores reais. Hooks limpam tabelas, reiniciam doubles e restauram a fixture entre cenários. O profile `local` já existente é usado na fixture; `spring.config.import` vazio evita carregar `.env`, e workers Outbox/SMTP e cliente Mercado Pago permanecem desabilitados. Não há AWS, SMTP ou provedor financeiro reais. Relatórios Cucumber HTML, JSON e JUnit ficam em `target/cucumber-reports`; Failsafe mantém resumo próprio em `target/bdd-reports`.
+
+## Cobertura e integração contínua
+
+`./mvnw clean verify` executa os três grupos uma vez. JaCoCo combina `jacoco-unit.exec`, `jacoco-integration.exec` e `jacoco-bdd.exec` em `target/jacoco-merged.exec`, usando os probes reais e as mesmas classes instrumentadas; não soma percentuais nem calcula médias. O relatório HTML/XML fica em `target/site/jacoco-merged/`. Na execução local desta alteração, foram cobertas 2.930 de 3.145 linhas (93,16%); 395 testes unitários, 991 de integração e dois cenários BDD passaram sem falhas ou ignorados. `jacoco:check` exige `LINE/COVEREDRATIO >= 0.80` no serviço, sem exclusões. O Sonar local importa esse XML e os relatórios dos três grupos; seu Quality Gate permanece local pelo procedimento acima.
+
+O [CI](../../.github/workflows/ci.yml) executa **Testes unitários**, **Testes de integração** e **BDD — Cucumber** independentemente e em paralelo com Java 25. Cada job publica relatórios e dados JaCoCo. **Validação obrigatória** depende do sucesso dos três e falha explicitamente se algum não passar. Recompila somente as classes, combina os três arquivos baixados e aplica o limite de 80%, sem repetir testes. Depois valida Docker e manifests, incluindo os testes do validador de deploy. Usa o JAR produzido na integração e, quando chamado pelo deploy, publica `billing-application-<SHA>` somente após todas as verificações. O deploy consome esse artifact da mesma execução antes de ECR/EKS. Falhas de qualquer grupo bloqueiam o fluxo; Sonar permanece local.
+
+O Dockerfile copia o JAR validado: `./mvnw clean verify` seguido de `docker build -t numberone-billing-service:local .`. Consulte [CI/CD](../../k8s/CI-CD.md) para gatilhos e configuração de branches. Em rulesets, mantenha **Validação obrigatória** como check obrigatório e confira os nomes efetivos após a mudança, inclusive jobs individuais quando exigidos pela proteção. Para preservar revisão e merge manuais em `develop`, exija PR e aprovação, limite bypass e desabilite auto-merge e exclusão automática de branches.
 
 ## Registro histórico de 11/11/2026
 

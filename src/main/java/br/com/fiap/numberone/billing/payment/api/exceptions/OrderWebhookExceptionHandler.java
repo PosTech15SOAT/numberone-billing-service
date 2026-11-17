@@ -1,13 +1,13 @@
 package br.com.fiap.numberone.billing.payment.api.exceptions;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
-import br.com.fiap.numberone.billing.budget.infrastructure.logging.SafeExceptionDetails;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.logging.SafeExceptionDetails;
 import br.com.fiap.numberone.billing.payment.api.controllers.OrderWebhookController;
 import br.com.fiap.numberone.billing.payment.api.dtos.PaymentErrorResponse;
 import br.com.fiap.numberone.billing.payment.application.exceptions.OrderLookupException;
 import br.com.fiap.numberone.billing.payment.infrastructure.webhook.InvalidOrderNotificationException;
 import jakarta.servlet.http.HttpServletRequest;
-import br.com.fiap.numberone.billing.infrastructure.observability.HttpObservationFilter;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.HttpObservationFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;

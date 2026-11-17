@@ -6,7 +6,7 @@ Registro de lacunas atuais verificadas no código/configurações. Comportamento
 
 **Situação:** confirmação externa pendente. OS fornece contexto de orçamento (`GET /internal/service-orders/{id}/quotation-context`) e estado para pagamento (`GET /internal/service-orders/{id}`); Inventory fornece preços por POST. Os mocks demonstram apenas o contrato consumido pelo Billing. Status dos itens/e-mail no contexto, rota/erros/projeções e política monetária precisam de acordo com OS/Inventory. A consulta interna do histórico Budget também é uma implementação local, sem aceite externo comprovado.
 
-No MVP, chamadas internas usam ClusterIP/DNS sem autenticação HTTP. Budget e Payment usam `OS_SERVICE_BASE_URL`; Inventory usa `INVENTORY_SERVICE_BASE_URL`. O checkout exige status `COMPLETED` e `cancellationInProgress` booleano. Mercado Pago/webhook habilitados ainda recusam profiles diferentes de exclusivamente local. **Impacto:** a jornada financeira completa não está habilitada para EKS.
+No MVP, chamadas internas usam ClusterIP/DNS sem autenticação HTTP. Budget e Payment usam `OS_SERVICE_BASE_URL`; Inventory usa `INVENTORY_SERVICE_BASE_URL`. O checkout exige status `COMPLETED` e `cancellationInProgress` booleano. Mercado Pago e webhook podem ser habilitados em TEST no EKS, mas a jornada financeira completa ainda depende de homologação externa. **Impacto:** mocks não comprovam a integração com os serviços reais.
 
 **Critério de resolução:** confirmar payloads/estados/rotas/erros em integração real e, em etapa futura, definir e implementar autenticação/autorização entre serviços e política operacional de ambiente, sem contornar guardas TEST. Fontes: [Budget HTTP](integrations/budget-http-contracts.md), [Payment HTTP](integrations/payment-http-contracts.md), [ADR 0012](adr/0012-local-test-seller-verification.md).
 
@@ -68,7 +68,7 @@ No MVP, chamadas internas usam ClusterIP/DNS sem autenticação HTTP. Budget e P
 
 ## Retenção, segredos e observabilidade
 
-**Situação:** não há retenção automática das tabelas operacionais, rotação de chave AES/keyring, recuperação de segredos, ingestão/alertas validados, tracing distribuído ou métricas exportadas. SMTP/SQS usam leases e podem duplicar entrega. MDC é local/síncrono; envelopes não herdam a correlação HTTP.
+**Situação:** não há retenção automática das tabelas operacionais, rotação de chave AES/keyring, recuperação de segredos, ingestão/alertas validados, tracing distribuído comprovado ou métricas exportadas. SMTP/SQS usam leases e podem duplicar entrega. MDC é local/síncrono; envelopes não herdam a correlação HTTP.
 
 **Impacto:** crescimento de histórico e pendências, perda de conteúdo cifrado por chave trocada e menor capacidade de acompanhamento/reconciliação em operação ampliada.
 

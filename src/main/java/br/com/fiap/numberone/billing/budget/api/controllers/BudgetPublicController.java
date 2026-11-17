@@ -1,13 +1,13 @@
 package br.com.fiap.numberone.billing.budget.api.controllers;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import br.com.fiap.numberone.billing.budget.api.publicview.PublicBudgetRequest;
 import br.com.fiap.numberone.billing.budget.api.publicview.PublicBudgetRequestFilter;
 import br.com.fiap.numberone.billing.budget.application.exceptions.BudgetAuthorizationException;
 import br.com.fiap.numberone.billing.budget.application.usecases.GetBudgetApprovalPageUseCase;
 import br.com.fiap.numberone.billing.budget.application.usecases.ApproveBudgetRemotelyUseCase;
 import br.com.fiap.numberone.billing.budget.application.usecases.RejectBudgetRemotelyUseCase;
-import br.com.fiap.numberone.billing.budget.infrastructure.logging.SafeExceptionDetails;
+import br.com.fiap.numberone.billing.shared.infrastructure.logging.SafeExceptionDetails;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -1,6 +1,6 @@
 package br.com.fiap.numberone.billing.budget.infrastructure.rest;
 
-import br.com.fiap.numberone.billing.infrastructure.observability.IntegrationObservation;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.IntegrationObservation;
 import br.com.fiap.numberone.billing.budget.application.exceptions.ExternalServiceException;
 import br.com.fiap.numberone.billing.budget.application.exceptions.ServiceOrderNotFoundException;
 import br.com.fiap.numberone.billing.budget.application.gateways.ServiceOrderGateway;

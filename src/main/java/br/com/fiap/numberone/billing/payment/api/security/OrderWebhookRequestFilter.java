@@ -6,8 +6,8 @@ import br.com.fiap.numberone.billing.payment.infrastructure.webhook.InvalidOrder
 import br.com.fiap.numberone.billing.payment.infrastructure.webhook.MercadoPagoSignatureValidator;
 import br.com.fiap.numberone.billing.payment.infrastructure.webhook.OrderNotificationMapper;
 import br.com.fiap.numberone.billing.payment.infrastructure.webhook.OrderWebhookIngress;
-import br.com.fiap.numberone.billing.infrastructure.observability.HttpObservationFilter;
-import br.com.fiap.numberone.billing.infrastructure.observability.ObservationLog;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.HttpObservationFilter;
+import br.com.fiap.numberone.billing.shared.infrastructure.observability.ObservationLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.servlet.FilterChain;

@@ -1,7 +1,7 @@
 # CI/CD
 
 - Push em `feature/**` executa CI e procura ou abre PR para `develop`; push em `develop` executa CI e procura ou abre PR para `main` se houver commits a promover. O PR existente recebe os novos commits. Revisão, aprovação e merge são manuais.
-- PRs para `develop` e `main` e pushes em `main` também executam CI. O job `test-and-build` publica os relatórios; a falha de automação de PR é independente do resultado do CI. Na OS, PR para `main` deve vir de `develop` no mesmo repositório; seu check existente é preservado.
+- PRs para `develop` e `main` e pushes em `main` também executam CI. Os jobs **Testes unitários**, **Testes de integração** e **BDD — Cucumber** executam em paralelo e publicam relatórios. `test-and-build` (**Validação obrigatória**) exige sucesso dos três, consolida os dados JaCoCo e valida cobertura de linhas mínima de 80% antes de liberar o JAR; a falha de automação de PR é independente do resultado do CI. Na OS, PR para `main` deve vir de `develop` no mesmo repositório; seu check existente é preservado.
 - A automação usa `GITHUB_TOKEN` com `contents: read` e `pull-requests: write`. Se a criação for bloqueada, habilite **Allow GitHub Actions to create and approve pull requests** em Settings → Actions → General → Workflow permissions, na organização e, se aplicável, no repositório. A política superior pode impedir a configuração. O workflow não aprova PRs; enquanto bloqueado, crie-os manualmente. O GitHub pode exigir que alguém com escrita aprove os workflows do PR criado pelo token.
 - Push/merge em `main` executa **Deploy Billing** automaticamente. `workflow_dispatch` permanece disponível em Actions → Deploy Billing → Run workflow → `main`. Os dois jobs exigem `main`; o deploy depende do CI reutilizável da mesma execução, baixa o JAR validado, publica no ECR e aplica a imagem por digest no EKS, com validação dos manifests no servidor, rollout, conferência do digest implantado e três health checks HTTP. PRs e outras branches não fazem deploy. Não há GitHub Environment.
 - Organization Variables: `AWS_ACCOUNT_ID`, `AWS_REGION`, `EKS_CLUSTER_NAME`, `DB_IDENTIFIER`. Organization Secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` válidos. Valores previstos: conta `891377201345`, região `us-east-1`, cluster `numberone-eks`, RDS `numberone-postgres`.
@@ -22,17 +22,49 @@ Billing: Java 25, Testcontainers, cobertura consolidada mínima de 80%, ECR e na
 | ConfigMap | `OS_SERVICE_BASE_URL` | `http://numberone-os-service.numberone-os.svc.cluster.local:8080`, conforme manifests da OS. |
 | Repository Variable | `BUDGET_APPROVAL_BASE_URL` | Output `billing_budget_approval_base_url` da stack Cloud, incluindo o caminho HTTPS da decisão. O render local sem essa variável usa a URL temporária do overlay. |
 | Repository Secret | `BUDGET_NOTIFICATION_ENCRYPTION_KEY` | Chave própria AES de 32 bytes codificada em base64; não copiar fixture nem rotacionar chave existente como parte do deploy. |
+| Repository Variables condicionais | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | Host, porta (padrão 587) e remetente validado pelo provedor; obrigatórios para ativar SMTP. |
+| Repository Secrets condicionais | `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenciais SMTP; ambos obrigatórios para ativar. Nunca imprimir os valores. |
+| Repository Variable opcional | `BUDGET_NOTIFICATIONS_ENABLED` | `false` por padrão; `true` habilita imediatamente o processamento das notificações pendentes. |
 | Repository Variable opcional | `OUTBOX_ENABLED` | Omitir ou `false` no primeiro deploy. |
 | Repository Variable condicional | `SQS_QUEUE_URL` | Exigida apenas se `OUTBOX_ENABLED=true`; manter Outbox desligada nesta etapa. |
 
 As configurações comuns também podem existir no repositório. Não criar Environment.
 Não é necessário cadastrar `ECR_REPOSITORY`, `K8S_NAMESPACE`, `DB_SECRET_ARN`,
-`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, SMTP ou credenciais financeiras no GitHub.
+`DB_URL`, `DB_USERNAME` ou `DB_PASSWORD` no GitHub. Credenciais financeiras não são necessárias enquanto as flags permanecerem desabilitadas.
 ECR/namespace/banco lógico são fixos no workflow. Terraform descobre o ARN pelo nome
 do secret; o runner descobre endpoint/porta no RDS, monta JDBC para
 `numberone_billing?sslmode=require` e sincroniza username/password do secret exclusivo.
 O secret deve conter JSON com `username` e `password`, diferentes da credencial master.
 Esse conteúdo não foi consultado na auditoria.
+
+## Configuração financeira de teste
+
+As flags permanecem `false` por padrão. O deploy valida os campos necessários quando habilitadas; a aplicação aceita TEST no EKS. Antes de ativar, confirme no painel a origem da credencial de teste e não use credenciais ou meios de pagamento reais. TEST e ID do vendedor não comprovam criptograficamente a origem da credencial; veja [Mercado Pago](../docs/integrations/mercado-pago.md).
+
+| Tipo | Nome | Uso quando habilitado |
+| --- | --- | --- |
+| Variable | `MERCADO_PAGO_ENABLED` | Checkout; padrão `false`. |
+| Variable | `MERCADO_PAGO_ENVIRONMENT` | `TEST`. |
+| Variable | `MERCADO_PAGO_EXPECTED_TEST_SELLER_ID` | ID numérico do vendedor conferido independentemente. |
+| Variable | `MERCADO_PAGO_WEBHOOK_ENABLED` | Webhook; padrão `false`. |
+| Variable | `MERCADO_PAGO_WEBHOOK_ENVIRONMENT` | `TEST`. |
+| Secret | `MERCADO_PAGO_TEST_ACCESS_TOKEN` | Credencial da aplicação obtida no seletor Teste; prefixo não comprova origem. |
+| Secret | `MERCADO_PAGO_WEBHOOK_SECRET` | Assinatura secreta do painel da aplicação. |
+
+O workflow copia valores não sensíveis ao ConfigMap runtime e, quando informados, mescla os Secrets financeiros no Secret existente; ausências não removem chaves anteriormente existentes. O overlay expõe os dois Secrets como variáveis opcionais. Alterações exigem novo rollout e a origem dos valores precisa ser conferida antes da ativação.
+
+
+## Ativação controlada de notificações
+
+1. Configure `BUDGET_APPROVAL_BASE_URL` com a URL HTTPS pública completa, terminada em `/api/public/orcamentos-ordem-servico/decisao`, sem query ou fragmento. Confirme no Gateway as rotas públicas de decisão, aprovação e rejeição e a publicação de `GET /css/budget.css` pela Infra Cloud.
+2. No provedor SMTP, valide o domínio/remetente e obtenha credenciais próprias para SMTP autenticado com STARTTLS e verificação TLS. Configure as Variables `SMTP_HOST`, `SMTP_PORT` e `SMTP_FROM` e os Secrets `SMTP_USERNAME` e `SMTP_PASSWORD` no repositório ou organização. O workflow não usa GitHub Environment.
+3. Mantenha `BUDGET_NOTIFICATIONS_ENABLED=false` e faça o deploy pelo fluxo normal após aprovação das mudanças. Verifique a configuração, resolução DNS, saída TCP e negociação STARTTLS para o provedor a partir da rede do EKS; a validação de startup não testa login nem envio. Não exponha credenciais durante o diagnóstico.
+4. Antes de habilitar, consulte o banco por acesso autorizado e somente leitura, sem consultar conteúdo cifrado nem tokens: `SELECT status, count(*) FROM budget_email_notification GROUP BY status;` e `SELECT notification_id, budget_id, attempt_count, next_attempt_at, lease_until FROM budget_email_notification WHERE status = 'PENDING' ORDER BY next_attempt_at;`. Pendências elegíveis podem ser processadas imediatamente; avalie também expiração e revogação das autorizações antes de prosseguir.
+5. Defina explicitamente `BUDGET_NOTIFICATIONS_ENABLED=true` e execute o fluxo de deploy aprovado. O workflow exige host, porta, remetente e os dois Secrets presentes nessa execução; alterações de ConfigMap/Secret exigem rollout para chegar aos processos. Confirme os logs sem expor links ou destinatários e teste com orçamento e destinatário controlados, inclusive abertura da página e decisão. Para interromper novos processamentos, retorne a flag a `false` e faça novo rollout; envios em andamento podem concluir.
+
+A chave `BUDGET_NOTIFICATION_ENCRYPTION_KEY` deve permanecer idêntica entre deploys e réplicas enquanto houver conteúdo pendente. Sua troca pode impossibilitar a leitura; o workflow não gera nem rotaciona a chave. O Secret Kubernetes existente é atualizado por mesclagem, preservando outras chaves e credenciais SMTP anteriores quando os dois Secrets GitHub não forem informados; para habilitar, ambos devem estar presentes no GitHub. Alterar a URL não reescreve links já cifrados em notificações pendentes.
+
+A identidade do workflow precisa das permissões Kubernetes `get`, `create` e `patch` para o Secret do Billing no namespace. A consulta de existência exibe somente o nome, nunca o conteúdo.
 
 ## Inicialização e evidência operacional
 
@@ -50,7 +82,7 @@ As consultas `auth can-i` autorizaram criação do namespace, criação/patch do
 recursos usados, acompanhamento do Deployment e port-forward para a sessão local;
 não comprovam as credenciais/configurações atualmente cadastradas no GitHub.
 
-O overlay não ativa profile Spring e mantém Outbox/SQS, notificações SMTP e Mercado Pago/webhook desligados.
+O overlay não ativa profile Spring e mantém Outbox/SQS, notificações SMTP e Mercado Pago/webhook desligados por padrão.
 `OutboxPublicationConfig` e `BudgetNotificationConfig` usam `ConditionalOnProperty`;
 os clientes HTTP de OS/Inventory são construídos sem consulta remota no startup.
 Uma OS indisponível não impede inicialização; operações que dependem dela exigem
@@ -59,7 +91,7 @@ disponibilidade posterior. O overlay usa `application.properties`, sem ativar `l
 A chave AES é exigida pelo workflow mesmo com SMTP desligado,
 pois as operações comerciais persistem notificações protegidas. Com o worker
 desligado, a validação dessas propriedades não é executada no startup pelo
-`BudgetNotificationConfig`; a URL temporária deve ser substituída por uma URL acessível antes de habilitar notificações.
+`BudgetNotificationConfig`; o deploy exige a URL pública HTTPS real antes de acessar a AWS.
 Outbox desligada acumula eventos e não comprova Saga funcional. Permanecem os
 `TODO: SAGA` existentes de reconciliação de identidade de checkout e de PAID
 histórico sem EV-03; nenhuma implementação Java foi alterada nesta preparação.
