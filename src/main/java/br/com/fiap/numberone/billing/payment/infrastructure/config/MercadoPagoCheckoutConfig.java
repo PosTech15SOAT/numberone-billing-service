@@ -29,7 +29,6 @@ public class MercadoPagoCheckoutConfig {
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(name = "billing.payment.mercado-pago.enabled", havingValue = "true")
     HttpClient mercadoPagoHttpClient(MercadoPagoProperties properties, ConfigurableEnvironment environment) {
-        MercadoPagoTestEnvironment.validate(environment);
         PropertySource<?> variables = environment.getPropertySources().get(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         if (variables == null || !properties.accessToken().equals(variables.getProperty("MERCADO_PAGO_TEST_ACCESS_TOKEN"))) {
             throw new IllegalArgumentException("Credencial Mercado Pago deve ser fornecida pela variável de ambiente dedicada");

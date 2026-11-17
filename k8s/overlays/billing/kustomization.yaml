@@ -46,6 +46,18 @@ patches:
                   - name: BUDGET_NOTIFICATION_ENCRYPTION_KEY
                     valueFrom:
                       secretKeyRef: {name: numberone-billing-secret, key: BUDGET_NOTIFICATION_ENCRYPTION_KEY}
+                  - name: SMTP_USERNAME
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: SMTP_USERNAME, optional: true}
+                  - name: SMTP_PASSWORD
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: SMTP_PASSWORD, optional: true}
+                  - name: MERCADO_PAGO_TEST_ACCESS_TOKEN
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: MERCADO_PAGO_TEST_ACCESS_TOKEN, optional: true}
+                  - name: MERCADO_PAGO_WEBHOOK_SECRET
+                    valueFrom:
+                      secretKeyRef: {name: numberone-billing-secret, key: MERCADO_PAGO_WEBHOOK_SECRET, optional: true}
             volumes:
               - name: billing-sqs-identity
                 projected:

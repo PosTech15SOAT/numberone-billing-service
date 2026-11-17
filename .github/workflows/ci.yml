@@ -25,32 +25,152 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
-  test-and-build:
-    name: Validação obrigatória
+  unit-tests:
+    name: Testes unitários
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Executar testes unitários
+        run: ./mvnw --batch-mode clean test
+      - name: Publicar relatórios unitários
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testes-unitarios
+          path: target/surefire-reports
+          if-no-files-found: warn
+      - name: Disponibilizar dados de cobertura unitária
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-unitaria
+          path: target/jacoco-unit.exec
+          if-no-files-found: error
+
+  integration-tests:
+    name: Testes de integração
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Verificar Docker para Testcontainers
+        run: docker info
+      - name: Executar testes de integração e gerar JAR
+        run: ./mvnw --batch-mode clean verify -DskipUnitTests=true -DskipBddTests=true -DskipMergedCoverage=true
+      - name: Publicar relatórios de integração
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testes-integracao
+          path: target/failsafe-reports
+          if-no-files-found: warn
+      - name: Disponibilizar dados de cobertura e JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: integracao-build
+          path: |
+            target/jacoco-integration.exec
+            target/numberone-billing-service-*.jar
+          if-no-files-found: error
+
+  bdd-tests:
+    name: BDD — Cucumber
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Verificar Docker para PostgreSQL Testcontainers
+        run: docker info
+      - name: Executar somente os cenários Cucumber
+        run: ./mvnw --batch-mode clean verify -DskipUnitTests=true -DskipIntegrationTests=true -DskipMergedCoverage=true
+      - name: Publicar relatórios BDD
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testes-bdd
+          path: |
+            target/bdd-reports
+            target/cucumber-reports
+          if-no-files-found: warn
+      - name: Disponibilizar dados de cobertura BDD
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-bdd
+          path: target/jacoco-bdd.exec
+          if-no-files-found: error
+
+  test-and-build:
+    name: Validação obrigatória
+    needs: [unit-tests, integration-tests, bdd-tests]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Exigir aprovação dos três jobs de testes
+        if: ${{ needs.unit-tests.result != 'success' || needs.integration-tests.result != 'success' || needs.bdd-tests.result != 'success' }}
+        run: |
+          echo "::error::Os testes unitários, de integração e BDD devem passar."
+          exit 1
       - name: Obter código do repositório
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-
       - name: Configurar Java 25 e cache Maven
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
           cache: maven
-
-      - name: Habilitar execução do Maven Wrapper
-        run: chmod +x mvnw
-
-      - name: Verificar disponibilidade do Docker para Testcontainers
-        run: docker info
-
-      - name: Executar testes e verificar cobertura consolidada mínima de 80%
-        run: ./mvnw --batch-mode clean verify
+      - name: Baixar cobertura unitária
+        uses: actions/download-artifact@v8
+        with:
+          name: cobertura-unitaria
+          path: target
+      - name: Baixar cobertura de integração e JAR
+        uses: actions/download-artifact@v8
+        with:
+          name: integracao-build
+          path: target
+      - name: Baixar cobertura BDD
+        uses: actions/download-artifact@v8
+        with:
+          name: cobertura-bdd
+          path: target
+      - name: Consolidar cobertura e exigir mínimo de 80%
+        run: |
+          test -s target/jacoco-unit.exec
+          test -s target/jacoco-integration.exec
+          test -s target/jacoco-bdd.exec
+          test -s target/numberone-billing-service-*.jar
+          ./mvnw --batch-mode compile jacoco:merge@merge-unit-and-integration jacoco:report@report-merged jacoco:check@check-merged-coverage
+      - name: Publicar cobertura consolidada
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-consolidada
+          path: target/site/jacoco-merged
+          if-no-files-found: warn
 
       - name: Construir imagem Docker sem publicação
         if: ${{ !inputs.upload_jar }}
@@ -68,6 +188,7 @@ jobs:
           IMAGE_URI: registry.example.invalid/numberone-billing@sha256:0000000000000000000000000000000000000000000000000000000000000000
           BUDGET_APPROVAL_BASE_URL: https://gateway.example.invalid/api/public/orcamentos-ordem-servico/decisao
         run: |
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
           mkdir -p rendered-manifests
           bash scripts/render-kubernetes.sh > rendered-manifests/billing.yaml
           grep -Fx "  BUDGET_APPROVAL_BASE_URL: $BUDGET_APPROVAL_BASE_URL" rendered-manifests/billing.yaml
@@ -82,14 +203,3 @@ jobs:
           path: target/numberone-billing-service-*.jar
           if-no-files-found: error
           retention-days: 1
-
-      - name: Publicar relatórios de testes e cobertura
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: relatorios-testes-cobertura
-          path: |
-            target/surefire-reports
-            target/failsafe-reports
-            target/site
-          if-no-files-found: warn

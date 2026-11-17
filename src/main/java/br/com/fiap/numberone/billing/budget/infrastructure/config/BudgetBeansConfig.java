@@ -1,5 +1,7 @@
 package br.com.fiap.numberone.billing.budget.infrastructure.config;
 
+import br.com.fiap.numberone.billing.shared.infrastructure.config.BudgetIntegrationProperties;
+
 import br.com.fiap.numberone.billing.budget.application.gateways.BudgetGateway;
 import br.com.fiap.numberone.billing.budget.application.gateways.BillingSagaStore;
 import br.com.fiap.numberone.billing.budget.application.usecases.CloseBillingContext;
@@ -24,7 +26,7 @@ import br.com.fiap.numberone.billing.budget.infrastructure.rest.ServiceOrderRest
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
+import br.com.fiap.numberone.billing.shared.infrastructure.rest.ServiceRequestHeaders;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.web.client.RestClient;

@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-import static br.com.fiap.numberone.billing.infrastructure.observability.HttpObservationFilter.CORRELATION;
+import static br.com.fiap.numberone.billing.shared.infrastructure.observability.HttpObservationFilter.CORRELATION;
 import org.slf4j.MDC;
 
 @RestController

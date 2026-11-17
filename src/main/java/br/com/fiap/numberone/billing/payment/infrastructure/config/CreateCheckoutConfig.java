@@ -8,14 +8,14 @@ import br.com.fiap.numberone.billing.payment.application.usecases.GetChargeCheck
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
-import br.com.fiap.numberone.billing.budget.infrastructure.config.BudgetIntegrationProperties;
+import br.com.fiap.numberone.billing.shared.infrastructure.config.BudgetIntegrationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import br.com.fiap.numberone.billing.payment.infrastructure.rest.ServiceOrderPaymentRestGateway;
 import br.com.fiap.numberone.billing.payment.infrastructure.rest.ServiceOrderPaymentMapper;
-import br.com.fiap.numberone.billing.infrastructure.rest.ServiceRequestHeaders;
+import br.com.fiap.numberone.billing.shared.infrastructure.rest.ServiceRequestHeaders;
 
 import java.net.http.HttpClient;
 

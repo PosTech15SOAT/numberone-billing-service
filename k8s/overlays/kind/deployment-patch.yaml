@@ -29,6 +29,8 @@ spec:
             configMapKeyRef:
               name: numberone-billing-runtime-config
               key: DB_USERNAME
+        - name: DD_TRACE_ENABLED
+          value: "false"
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:

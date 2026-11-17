@@ -1,5 +1,7 @@
 # ADR 0009: Checkout Pro via Orders API exclusivamente em teste
 
+> Atualização: a restrição de execução a ambientes locais foi removida; TEST explícito e validações financeiras permanecem. Consulte [Mercado Pago](../integrations/mercado-pago.md).
+
 **Status:** Aceita — política de habilitação original parcialmente substituída pela ADR 0012.
 
 **Data:** 2026-11-09
