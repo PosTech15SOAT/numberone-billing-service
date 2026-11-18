@@ -1,5 +1,20 @@
 # NumberOne Billing Service
 
+## CI/CD da Fase 4
+
+Push em `feature/**` abre PR para `develop` quando necessário; o PR executa
+o CI. Push em `develop` abre PR para `main`, também sujeito ao CI. O merge na
+`main` aciona o deploy, que valida o mesmo commit antes de publicar a imagem
+no ECR e atualizar o EKS. O deploy também aceita acionamento manual na `main`.
+A `main` exige PR e o check `Validação obrigatória`.
+
+O CI usa Java 25 e jobs de testes unitários, integração e BDD/Cucumber.
+Consolida a cobertura JaCoCo com mínimo de 80% de linhas, executa PMD 3.28.0
+com bloqueio das prioridades 1 e 2, valida imagem Docker e manifests.
+Relatórios de testes, cobertura e PMD ficam nos artifacts da execução.
+Achados PMD de prioridades 3 a 5 exigem triagem. Sonar é executado apenas
+localmente e não participa do check obrigatório.
+
 Serviço de orçamentos e pagamentos do NumberOne. Mantém revisões comerciais, aprovação presencial ou por link temporário, notificações SMTP, cobranças e tentativas de checkout. Publica fatos confirmados por Outbox PostgreSQL/SQS. OS Service continua responsável pela ordem de serviço; Inventory Service fornece preços.
 
 ## Stack e pré-requisitos
@@ -24,7 +39,7 @@ As credenciais fictícias acima são exclusivas do LocalStack. O profile local i
 
 Configurações essenciais: `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, bases `OS_SERVICE_BASE_URL` e `INVENTORY_SERVICE_BASE_URL`. Sem profile local, configure também `DB_URL`; não há profile de produção versionado. Outbox é habilitada por padrão em local e desabilitada no comum. SMTP e Mercado Pago são opt-in. Detalhes de variáveis, health checks, mocks e diagnóstico em [execução local](docs/operations/local-testing.md).
 
-Os manifests de homologação e o workflow manual ECR/EKS estão preparados em [Kubernetes e CI/CD](k8s/README.md), com contrato de configuração externa e dependências ainda não confirmadas. Essa estrutura mantém integrações financeiras e workers desabilitados.
+Os manifests e o workflow ECR/EKS estão descritos em [Kubernetes e CI/CD](k8s/README.md). O deploy roda no push da `main` ou por acionamento manual. Integrações financeiras e workers dependem de configuração externa e teste funcional.
 
 Solicitar/reenviar aprovação exige `BUDGET_NOTIFICATION_ENCRYPTION_KEY` (32 bytes em Base64) e `BUDGET_APPROVAL_BASE_URL`, mesmo com SMTP desligado. Para entrega, configure `SMTP_*` e `BUDGET_NOTIFICATIONS_ENABLED=true`. O e-mail é texto simples; Thymeleaf renderiza a página pública de decisão.
 
