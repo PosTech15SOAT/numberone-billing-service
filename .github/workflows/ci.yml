@@ -157,6 +157,15 @@ jobs:
           test -s target/jacoco-bdd.exec
           test -s target/numberone-billing-service-*.jar
           ./mvnw --batch-mode compile jacoco:merge@merge-unit-and-integration jacoco:report@report-merged jacoco:check@check-merged-coverage
+      - name: Analisar código com PMD e bloquear violações críticas
+        run: ./mvnw --batch-mode org.apache.maven.plugins:maven-pmd-plugin:3.28.0:check -Dpmd.failurePriority=2
+      - name: Publicar relatório de análise estática
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: analise-estatica-pmd
+          path: target/pmd.xml
+          if-no-files-found: warn
       - name: Publicar cobertura consolidada
         if: always()
         uses: actions/upload-artifact@v7
