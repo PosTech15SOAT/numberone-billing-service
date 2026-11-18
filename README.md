@@ -72,6 +72,8 @@ Os testes são agrupados por `budget` e `payment`, depois por `unit`, `integrati
 | Página de decisão | GET `/api/public/orcamentos-ordem-servico/decisao` |
 | Webhook | POST `/api/public/pagamentos/notificacoes/mercado-pago` |
 
+[Collection Postman Billing](docs/postman/numberone-billing.postman_collection.json) · importe no Postman ou no Insomnia. Configure o API Gateway em modo full, um JWT de operador e o UUID de uma OS com composição pronta. O webhook e os endpoints internos estão nos contratos a seguir.
+
 Todos os endpoints, DTOs, erros, autenticação, histórico, decisões e reenvio estão nos contratos de [Budget](docs/integrations/budget-http-contracts.md) e [Payment](docs/integrations/payment-http-contracts.md). Não há Swagger/OpenAPI configurado.
 
 ## Documentação

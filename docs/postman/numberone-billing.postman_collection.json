@@ -1,0 +1,246 @@
+{
+  "info": {
+    "name": "NumberOne · Billing",
+    "description": "Rotas do Billing publicadas pelo API Gateway em modo full. Preencha baseUrl sem barra final e operatorToken com o JWT de operador. Use um UUID em correlationId. Para o orçamento, use uma OS diagnosticada com itens e insumos válidos. Copie o id retornado para budgetId. O checkout usa o Mercado Pago no ambiente de Teste.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operatorToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "correlationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "approvalToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "budgetId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "checkoutKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Orçamento",
+      "item": [
+        {
+          "name": "Criar orçamento",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/orcamentos",
+            "description": "Preencha orderId com o UUID da OS preparada. Copie o id retornado para budgetId.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Consultar orçamento",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}",
+            "description": "Use budgetId para consultar a revisão, o valor e o status.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Enviar orçamento para aprovação",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/admin/orcamentos-ordem-servico/{{budgetId}}/solicitar-aprovacao",
+            "description": "Requer envio de e-mail ativo na homologação. Copie o parâmetro token do link para approvalToken.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Abrir página de decisão",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/orcamentos-ordem-servico/decisao?token={{approvalToken}}",
+            "description": "Use o approvalToken recebido por e-mail. A resposta é HTML.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Aprovar orçamento pelo link",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/public/orcamentos-ordem-servico/aprovar",
+            "description": "O Billing consome o token e publica a aprovação pelo outbox.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "token",
+                  "value": "{{approvalToken}}",
+                  "type": "text"
+                },
+                {
+                  "key": "confirmacao",
+                  "value": "sim",
+                  "type": "text"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pagamento de teste",
+      "item": [
+        {
+          "name": "Criar checkout Mercado Pago",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/pagamentos/checkout",
+            "description": "Use um UUID novo em checkoutKey e guarde-o para retentar a mesma operação. Abra urlCheckout no navegador com uma conta compradora de Teste.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutKey}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Consultar checkout e pagamento",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/ordens-servico/{{orderId}}/pagamentos/checkout",
+            "description": "Consulte o status atual e aguarde PAID após o processamento do webhook do Mercado Pago.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlationId}}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
